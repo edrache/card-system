@@ -237,20 +237,37 @@ export class DragManager {
         });
 
         if (bestTarget) {
-            // Snap X to target's X
-            // We need to calculate the relative position
+            // Snap X to target's X with OFFSET
+            // User requested: "Each card should be slightly shifted to the right from the card above it"
+            // This means the card BELOW (target) is to the RIGHT of the card ABOVE (dropped card).
+            // So DroppedCard.Left = Target.Left - Offset.
+
+            const STACK_OFFSET_X = 25; // Shift Right
+            const STACK_OFFSET_Y = 35; // Shift Down (approx header height)
+
             const containerRect = this.container.getBoundingClientRect();
             const targetRect = bestTarget.getBoundingClientRect();
 
-            // Calculate the delta needed to align Lefts
+            // Calculate the delta needed to align
             const currentLeft = parseFloat(card.style.left);
+            const currentTop = parseFloat(card.style.top);
+
             const targetLeft = (targetRect.left - containerRect.left) / this.scale;
-            const deltaX = targetLeft - currentLeft;
+            const targetTop = (targetRect.top - containerRect.top) / this.scale;
+
+            // Apply offset: Dropped is Target + Offset
+            const newLeft = targetLeft + STACK_OFFSET_X;
+            const newTop = targetTop + STACK_OFFSET_Y;
+
+            const deltaX = newLeft - currentLeft;
+            const deltaY = newTop - currentTop;
 
             // Apply delta to ALL dragged elements to keep them relative to each other
             this.draggedElements.forEach(el => {
                 const elLeft = parseFloat(el.style.left);
+                const elTop = parseFloat(el.style.top);
                 el.style.left = `${elLeft + deltaX}px`;
+                el.style.top = `${elTop + deltaY}px`;
             });
         }
     }
