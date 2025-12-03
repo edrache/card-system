@@ -78,6 +78,9 @@ function renderDeckOnTable(deck, x, y) {
     deckEl.style.left = `${x}px`;
     deckEl.style.top = `${y}px`;
     deckEl.style.zIndex = DragManager.getNextZIndex();
+    if (deck.color) {
+        deckEl.style.backgroundColor = deck.color;
+    }
     deckEl.innerHTML = `
         <div style="text-align: center;">
             <strong>${deck.name}</strong><br>

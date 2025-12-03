@@ -1,12 +1,13 @@
 export class Deck {
-    constructor(id, name, cardIds = []) {
+    constructor(id, name, cardIds = [], color = '#34495e') {
         this.id = id || crypto.randomUUID();
         this.name = name;
         this.cardIds = cardIds;
+        this.color = color;
     }
 
     static fromJSON(json) {
-        return new Deck(json.id, json.name, json.cardIds);
+        return new Deck(json.id, json.name, json.cardIds, json.color);
     }
 
     addCard(cardId) {
