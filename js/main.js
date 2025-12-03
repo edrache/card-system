@@ -2,6 +2,7 @@ import { StorageManager } from './utils/StorageManager.js';
 import { DragManager } from './ui/DragManager.js';
 import { Card } from './models/Card.js';
 import { Deck } from './models/Deck.js';
+import { FileUtils } from './utils/FileUtils.js';
 
 // DOM Elements
 const table = document.getElementById('table');
@@ -9,6 +10,9 @@ const tableContent = document.getElementById('table-content'); // New container
 const deckSelect = document.getElementById('deck-select');
 const addDeckBtn = document.getElementById('add-deck-btn');
 const resetTableBtn = document.getElementById('reset-table');
+const exportTableBtn = document.getElementById('export-table-btn');
+const importTableBtn = document.getElementById('import-table-btn');
+const importTableFile = document.getElementById('import-table-file');
 
 const dragManager = new DragManager('table-content'); // Use inner container
 
@@ -24,6 +28,9 @@ function init() {
 function setupEventListeners() {
     addDeckBtn.addEventListener('click', handleAddDeck);
     resetTableBtn.addEventListener('click', handleResetTable);
+    exportTableBtn.addEventListener('click', handleExportTable);
+    importTableBtn.addEventListener('click', () => importTableFile.click());
+    importTableFile.addEventListener('change', handleImportTable);
 
     // Zoom Logic
     const baseBackgroundSize = 300; // Match CSS default
@@ -154,6 +161,7 @@ function updateDeckCount(deckEl, deck) {
 function renderCardOnTable(card, x, y) {
     const cardEl = document.createElement('div');
     cardEl.className = 'card draggable';
+    cardEl.dataset.id = card.id;
     cardEl.style.left = `${x}px`;
     cardEl.style.top = `${y}px`;
     cardEl.style.zIndex = DragManager.getNextZIndex();
@@ -171,6 +179,108 @@ function renderCardOnTable(card, x, y) {
 function handleResetTable() {
     tableContent.innerHTML = '';
     activeDecks = [];
+}
+
+function handleExportTable() {
+    // Capture Table State
+    const tableState = {
+        decks: [],
+        cards: []
+    };
+
+    // Decks on table
+    activeDecks.forEach(item => {
+        const rect = item.element.getBoundingClientRect();
+        // Calculate relative position to table content (considering zoom/pan if any, but for now simple)
+        // Actually, we stored them with left/top style.
+        tableState.decks.push({
+            x: parseFloat(item.element.style.left),
+            y: parseFloat(item.element.style.top),
+            deckId: item.deck.id, // Original Deck ID
+            remainingCardIds: [...item.deck.cardIds], // Current state of deck
+            color: item.deck.color,
+            name: item.deck.name
+        });
+    });
+
+    // Cards on table (loose cards)
+    const cards = document.querySelectorAll('.card.draggable');
+    cards.forEach(cardEl => {
+        // We need to associate the element with the card data. 
+        // Currently we don't store the card object on the element.
+        // We should probably attach it or parse it. 
+        // Parsing is risky. Let's attach data-id to the element when rendering.
+        // Wait, we didn't add data-id to renderCardOnTable. We need to fix that first.
+        // Assuming we fix renderCardOnTable to add data-id:
+        const id = cardEl.dataset.id;
+        if (id) {
+            tableState.cards.push({
+                x: parseFloat(cardEl.style.left),
+                y: parseFloat(cardEl.style.top),
+                cardId: id
+            });
+        }
+    });
+
+    // Definitions
+    const definitions = {
+        cards: StorageManager.getCards(),
+        decks: StorageManager.getDecks()
+    };
+
+    const exportData = {
+        timestamp: Date.now(),
+        tableState,
+        definitions
+    };
+
+    FileUtils.downloadJSON(exportData, `table_state_${Date.now()}.json`);
+}
+
+async function handleImportTable(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+        const data = await FileUtils.readJSONFile(file);
+
+        // 1. Import Definitions
+        if (data.definitions) {
+            StorageManager.importLibrary({ cards: data.definitions.cards });
+            StorageManager.importDecks({ decks: data.definitions.decks });
+        }
+
+        // 2. Clear Table
+        handleResetTable();
+
+        // 3. Restore State
+        if (data.tableState) {
+            // Restore Decks
+            data.tableState.decks.forEach(dState => {
+                // We reconstruct the deck instance
+                // We can use the definition from storage or the state data
+                // State data has the *current* cards, which is what we want for the table instance
+                const deck = new Deck(dState.deckId, dState.name, dState.remainingCardIds, dState.color);
+                renderDeckOnTable(deck, dState.x, dState.y);
+            });
+
+            // Restore Cards
+            const allCards = StorageManager.getCards();
+            data.tableState.cards.forEach(cState => {
+                const card = allCards.find(c => c.id === cState.cardId);
+                if (card) {
+                    renderCardOnTable(card, cState.x, cState.y);
+                }
+            });
+        }
+
+        alert('Table state imported successfully!');
+
+    } catch (err) {
+        console.error(err);
+        alert('Failed to import table state');
+    }
+    e.target.value = '';
 }
 
 init();

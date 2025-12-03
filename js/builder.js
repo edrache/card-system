@@ -1,6 +1,7 @@
 import { Card } from './models/Card.js';
 import { Deck } from './models/Deck.js';
 import { StorageManager } from './utils/StorageManager.js';
+import { FileUtils } from './utils/FileUtils.js';
 
 // DOM Elements
 const navCreate = document.getElementById('nav-create');
@@ -33,10 +34,16 @@ const addSelectedBtn = document.getElementById('add-selected-btn');
 const bulkTagInput = document.getElementById('bulk-tag-input');
 const bulkAddTagBtn = document.getElementById('bulk-add-tag-btn');
 const bulkRemoveTagBtn = document.getElementById('bulk-remove-tag-btn');
+const exportLibraryBtn = document.getElementById('export-library-btn');
+const importLibraryBtn = document.getElementById('import-library-btn');
+const importLibraryFile = document.getElementById('import-library-file');
 
 // Deck Builder View Elements
 const deckNameInput = document.getElementById('deck-name');
 const createDeckBtn = document.getElementById('create-deck-btn');
+const exportDecksBtn = document.getElementById('export-decks-btn');
+const importDecksBtn = document.getElementById('import-decks-btn');
+const importDecksFile = document.getElementById('import-decks-file');
 const deckList = document.getElementById('deck-list');
 
 // Modal Elements
@@ -109,8 +116,15 @@ function setupEventListeners() {
     bulkAddTagBtn.addEventListener('click', () => handleBulkTag('add'));
     bulkRemoveTagBtn.addEventListener('click', () => handleBulkTag('remove'));
 
+    exportLibraryBtn.addEventListener('click', handleExportLibrary);
+    importLibraryBtn.addEventListener('click', () => importLibraryFile.click());
+    importLibraryFile.addEventListener('change', handleImportLibrary);
+
     // Deck Builder View
     createDeckBtn.addEventListener('click', handleCreateDeck);
+    exportDecksBtn.addEventListener('click', handleExportDecks);
+    importDecksBtn.addEventListener('click', () => importDecksFile.click());
+    importDecksFile.addEventListener('change', handleImportDecks);
 
     // Modal
     closeModal.addEventListener('click', () => modal.classList.add('hidden'));
@@ -406,6 +420,28 @@ function handleTagAutocomplete(input) {
     }
 }
 
+function handleExportLibrary() {
+    const data = StorageManager.exportLibrary();
+    FileUtils.downloadJSON(data, `card_library_${Date.now()}.json`);
+    showToast('Library exported');
+}
+
+async function handleImportLibrary(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+        const data = await FileUtils.readJSONFile(file);
+        const count = StorageManager.importLibrary(data);
+        renderLibrary();
+        showToast(`Imported ${count} cards`);
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to import library', true);
+    }
+    e.target.value = ''; // Reset input
+}
+
 function updateDeckSelects() {
     const decks = StorageManager.getDecks();
     addToDeckSelect.innerHTML = '<option value="">Add Selected to Deck...</option>';
@@ -429,6 +465,28 @@ function handleCreateDeck() {
     deckNameInput.value = '';
     renderDeckList();
     showToast(`Created deck: ${name}`);
+}
+
+function handleExportDecks() {
+    const data = StorageManager.exportDecks();
+    FileUtils.downloadJSON(data, `decks_${Date.now()}.json`);
+    showToast('Decks exported');
+}
+
+async function handleImportDecks(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+        const data = await FileUtils.readJSONFile(file);
+        const count = StorageManager.importDecks(data);
+        renderDeckList();
+        showToast(`Imported ${count} decks`);
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to import decks', true);
+    }
+    e.target.value = '';
 }
 
 function renderDeckList() {

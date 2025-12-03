@@ -61,4 +61,38 @@ export class StorageManager {
         localStorage.removeItem(CARDS_KEY);
         localStorage.removeItem(DECKS_KEY);
     }
+
+    // --- Import/Export ---
+
+    static exportLibrary() {
+        return { cards: this.getCards() };
+    }
+
+    static importLibrary(data) {
+        if (!data || !data.cards) return 0;
+        let count = 0;
+        data.cards.forEach(cardData => {
+            // We use saveCard which handles updates/inserts
+            // We assume incoming data is valid Card objects
+            const card = Card.fromJSON(cardData);
+            this.saveCard(card);
+            count++;
+        });
+        return count;
+    }
+
+    static exportDecks() {
+        return { decks: this.getDecks() };
+    }
+
+    static importDecks(data) {
+        if (!data || !data.decks) return 0;
+        let count = 0;
+        data.decks.forEach(deckData => {
+            const deck = Deck.fromJSON(deckData);
+            this.saveDeck(deck);
+            count++;
+        });
+        return count;
+    }
 }

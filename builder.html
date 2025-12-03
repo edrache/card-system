@@ -85,6 +85,11 @@
                         <button id="bulk-add-tag-btn">Add Tag</button>
                         <button id="bulk-remove-tag-btn" class="warning-btn">Remove Tag</button>
                     </div>
+                    <div class="io-controls" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+                        <button id="export-library-btn" class="secondary-btn">Export Cards</button>
+                        <button id="import-library-btn" class="secondary-btn">Import Cards</button>
+                        <input type="file" id="import-library-file" accept=".json" class="hidden">
+                    </div>
                 </div>
 
                 <div id="library-list" class="card-grid">
@@ -99,6 +104,11 @@
                 <div class="deck-controls">
                     <input type="text" id="deck-name" placeholder="New Deck Name">
                     <button id="create-deck-btn">Create New Deck</button>
+                    <div style="margin-top: 5px;">
+                        <button id="export-decks-btn" class="secondary-btn">Export Decks</button>
+                        <button id="import-decks-btn" class="secondary-btn">Import Decks</button>
+                        <input type="file" id="import-decks-file" accept=".json" class="hidden">
+                    </div>
                 </div>
 
                 <div id="deck-list" class="deck-accordion">

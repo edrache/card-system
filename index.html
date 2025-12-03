@@ -25,11 +25,16 @@
         </div>
 
         <div id="controls">
-            <button id="reset-table">Reset Table</button>
             <select id="deck-select">
                 <option value="">Select a Deck to Add</option>
             </select>
             <button id="add-deck-btn">Add Deck to Table</button>
+            <button id="reset-table" class="danger-btn">Reset Table</button>
+            <div class="io-controls" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+                <button id="export-table-btn">Export Table</button>
+                <button id="import-table-btn">Import Table</button>
+                <input type="file" id="import-table-file" accept=".json" style="display: none;">
+            </div>
         </div>
     </main>
 
