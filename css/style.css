@@ -1,0 +1,334 @@
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2c3e50;
+    --background-color: #ecf0f1;
+    --card-bg: #ffffff;
+    --text-color: #333;
+    --border-color: #bdc3c7;
+    --table-color: #27ae60;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    margin-left: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+}
+
+nav a.active {
+    background-color: var(--primary-color);
+}
+
+main {
+    flex: 1;
+    padding: 1rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tabletop Styles */
+#tabletop {
+    position: relative;
+    padding: 0;
+}
+
+#table {
+    flex: 1;
+    background-color: var(--table-color);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+
+    /* Background Pattern */
+    background-image: url('../images/BroadclothBackground.png');
+    background-repeat: repeat;
+    /* Base size, will be scaled by JS */
+    background-size: 300px;
+}
+
+#table-content {
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+    transition: transform 0.1s ease-out;
+}
+
+#controls {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.5rem;
+    border-radius: 4px;
+    z-index: 100;
+}
+
+/* Builder Layout */
+.builder-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    overflow-y: auto;
+}
+
+section {
+    background: var(--card-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+/* Card Styles */
+.card {
+    width: 150px;
+    height: 210px;
+    background-color: white;
+    border: 1px solid #999;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    position: absolute;
+    /* For tabletop */
+    cursor: grab;
+}
+
+.card.dragging {
+    cursor: grabbing;
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+}
+
+.card-header {
+    font-weight: bold;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+}
+
+.card-body {
+    flex: 1;
+    font-size: 0.9em;
+    overflow: hidden;
+}
+
+.card-flavor {
+    font-style: italic;
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 5px;
+    border-top: 1px solid #eee;
+    padding-top: 5px;
+}
+
+.card-tags {
+    font-size: 0.7em;
+    color: #888;
+    margin-top: 5px;
+}
+
+/* Deck Styles */
+.deck {
+    width: 150px;
+    height: 210px;
+    background-color: #34495e;
+    border: 2px solid white;
+    border-radius: 8px;
+    position: absolute;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.4);
+}
+
+.deck::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 1px solid #bdc3c7;
+    border-radius: 10px;
+    z-index: -1;
+}
+
+.deck-controls {
+    position: absolute;
+    bottom: 5px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    z-index: 10;
+}
+
+.deck-btn {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 2px 8px;
+    font-size: 0.8em;
+    border-radius: 4px;
+    cursor: pointer;
+    pointer-events: auto;
+    /* Ensure clicks pass through */
+}
+
+.deck-btn:hover {
+    background-color: white;
+    color: var(--primary-color);
+}
+
+/* List Views */
+.card-list {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    margin-top: 1rem;
+    padding: 0.5rem;
+}
+
+.list-item {
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+}
+
+.list-item:hover {
+    background-color: #f9f9f9;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    position: relative;
+    min-width: 300px;
+    min-height: 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.close-modal {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* Toast */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 3000;
+}
+
+.toast {
+    background-color: #333;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    margin-top: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+.deck-actions {
+    margin: 10px 0;
+    display: flex;
+    gap: 5px;
+}

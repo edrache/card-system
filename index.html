@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card System - Tabletop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Card System Tabletop</h1>
+        <nav>
+            <a href="index.html" class="active">Tabletop</a>
+            <a href="builder.html">Card Builder</a>
+        </nav>
+    </header>
+
+    <main id="tabletop">
+        <div id="table">
+            <div id="table-content">
+                <!-- Cards and Decks will be rendered here -->
+            </div>
+        </div>
+
+        <div id="controls">
+            <button id="reset-table">Reset Table</button>
+            <select id="deck-select">
+                <option value="">Select a Deck to Add</option>
+            </select>
+            <button id="add-deck-btn">Add Deck to Table</button>
+        </div>
+    </main>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
