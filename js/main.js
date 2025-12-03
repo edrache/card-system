@@ -283,4 +283,46 @@ async function handleImportTable(e) {
     e.target.value = '';
 }
 
+
+
+// --- Help System ---
+
+const helpBtn = document.getElementById('help-btn');
+const helpModal = document.getElementById('help-modal');
+const closeHelpModal = helpModal.querySelector('.close-modal');
+const helpContent = document.getElementById('help-content');
+
+function setupHelp() {
+    helpBtn.addEventListener('click', () => {
+        helpContent.innerHTML = `
+            <h3>Controls</h3>
+            <ul>
+                <li><strong>Drag & Drop:</strong> Move cards and decks freely.</li>
+                <li><strong>Zoom:</strong> Use mouse wheel to zoom in/out.</li>
+                <li><strong>Draw:</strong> Click "Draw" on a deck to reveal a card.</li>
+                <li><strong>Shuffle:</strong> Click "Shuffle" to randomize a deck.</li>
+            </ul>
+            <h3>Interactions</h3>
+            <ul>
+                <li><strong>Stacking:</strong> Drag a card over another to stack them.</li>
+                <li><strong>Moving Stacks:</strong> Drag the bottom card to move the stack.</li>
+                <li><strong>Separating:</strong> Drag the top card to separate it.</li>
+            </ul>
+            <h3>Data</h3>
+            <ul>
+                <li><strong>Export Table:</strong> Save your current game setup (cards, decks, positions) to a file.</li>
+                <li><strong>Import Table:</strong> Restore a saved game setup.</li>
+            </ul>
+        `;
+        helpModal.classList.remove('hidden');
+    });
+
+    closeHelpModal.addEventListener('click', () => helpModal.classList.add('hidden'));
+    window.addEventListener('click', (e) => {
+        if (e.target === helpModal) helpModal.classList.add('hidden');
+    });
+}
+
+setupHelp();
+
 init();

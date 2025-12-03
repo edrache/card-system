@@ -489,6 +489,89 @@ async function handleImportDecks(e) {
     e.target.value = '';
 }
 
+
+
+// --- Help System ---
+
+const helpBtn = document.getElementById('help-btn');
+const helpModal = document.getElementById('help-modal');
+const closeHelpModal = helpModal.querySelector('.close-modal'); // Note: might conflict if multiple modals share class. 
+// Actually, querySelector finds the first one. We have two modals now. 
+// Let's be specific or use IDs. The builder.html has two modals with close-modal class.
+// We should probably scope it.
+const helpContent = document.getElementById('help-content');
+
+function setupHelp() {
+    // Scope close button to help modal
+    const closeBtn = helpModal.querySelector('.close-modal');
+
+    helpBtn.addEventListener('click', () => {
+        const activeView = getActiveViewName();
+        helpContent.innerHTML = getHelpContent(activeView);
+        helpModal.classList.remove('hidden');
+    });
+
+    closeBtn.addEventListener('click', () => helpModal.classList.add('hidden'));
+    window.addEventListener('click', (e) => {
+        if (e.target === helpModal) helpModal.classList.add('hidden');
+    });
+}
+
+function getActiveViewName() {
+    if (navCreate.classList.contains('active')) return 'Create';
+    if (navLibrary.classList.contains('active')) return 'Library';
+    if (navDeckBuilder.classList.contains('active')) return 'Deck Builder';
+    return 'Builder';
+}
+
+function getHelpContent(viewName) {
+    switch (viewName) {
+        case 'Create':
+            return `
+                <h3>Create Card</h3>
+                <ul>
+                    <li><strong>Fill Fields:</strong> Enter Name, Mechanical Text, Flavor Text, and Tags.</li>
+                    <li><strong>Create:</strong> Click "Create Card" to save.</li>
+                    <li><strong>Bulk Import:</strong> Paste pipe-separated data to create multiple cards at once.</li>
+                </ul>
+                <h3>Editing</h3>
+                <ul>
+                    <li>When editing a card, you can <strong>Overwrite</strong> it or <strong>Save as New</strong>.</li>
+                </ul>
+            `;
+        case 'Library':
+            return `
+                <h3>Library Management</h3>
+                <ul>
+                    <li><strong>Grid View:</strong> See all your created cards.</li>
+                    <li><strong>Search & Filter:</strong> Find cards by name or tag (with autocomplete).</li>
+                    <li><strong>Selection:</strong> Click checkboxes to select multiple cards.</li>
+                </ul>
+                <h3>Bulk Actions</h3>
+                <ul>
+                    <li><strong>Delete Selected:</strong> Remove multiple cards.</li>
+                    <li><strong>Add to Deck:</strong> Add selected cards to a chosen deck.</li>
+                    <li><strong>Bulk Tagging:</strong> Add or remove tags from selected cards.</li>
+                    <li><strong>Export/Import:</strong> Backup or restore your card library.</li>
+                </ul>
+            `;
+        case 'Deck Builder':
+            return `
+                <h3>Deck Management</h3>
+                <ul>
+                    <li><strong>Create Deck:</strong> Enter a name and click create.</li>
+                    <li><strong>Edit Deck:</strong> Expand a deck to change its name or <strong>Color</strong>.</li>
+                    <li><strong>Manage Cards:</strong> Remove individual cards from the list.</li>
+                    <li><strong>Export/Import:</strong> Backup or restore your decks.</li>
+                </ul>
+            `;
+        default:
+            return '<p>Select a view to see specific help.</p>';
+    }
+}
+
+setupHelp();
+
 function renderDeckList() {
     const decks = StorageManager.getDecks();
     const allCards = StorageManager.getCards();
