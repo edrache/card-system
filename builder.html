@@ -23,42 +23,48 @@
 
     <main class="builder-layout">
         <div id="view-create" class="view-section">
-            <section id="card-creator">
-                <h2>Create New Card</h2>
-                <form id="card-form" autocomplete="off">
-                    <input type="hidden" id="editing-card-id">
-                    <div class="form-group">
-                        <label for="card-name">Name</label>
-                        <input type="text" id="card-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="card-mech-text">Mechanical Text</label>
-                        <textarea id="card-mech-text" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="card-flavor-text">Flavor Text</label>
-                        <textarea id="card-flavor-text" rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="card-tags">Tags (comma separated)</label>
-                        <input type="text" id="card-tags">
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" id="create-btn">Create Card</button>
-                        <div id="edit-buttons" class="hidden" style="display: flex; gap: 10px;">
-                            <button type="button" id="overwrite-btn" class="warning-btn">Overwrite Existing</button>
-                            <button type="button" id="save-as-new-btn">Save as New</button>
-                            <button type="button" id="cancel-edit-btn" class="secondary-btn">Cancel Edit</button>
+            <div class="create-view-container">
+                <section id="card-creator" class="create-column">
+                    <h2>Create New Card</h2>
+                    <form id="card-form" autocomplete="off">
+                        <input type="hidden" id="editing-card-id">
+                        <div class="form-group">
+                            <label for="card-name">Name</label>
+                            <input type="text" id="card-name" required>
                         </div>
-                    </div>
-                </form>
+                        <div class="form-group">
+                            <label for="card-mech-text">Mechanical Text</label>
+                            <textarea id="card-mech-text" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="card-flavor-text">Flavor Text</label>
+                            <textarea id="card-flavor-text" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="card-tags">Tags (comma separated)</label>
+                            <input type="text" id="card-tags">
+                        </div>
 
-                <h3>Bulk Import</h3>
-                <textarea id="bulk-import" placeholder="Format: Name | Mechanical Text | Flavor Text | Tags"
-                    rows="5"></textarea>
-                <button id="import-btn">Import</button>
-            </section>
+                        <div class="form-actions">
+                            <button type="submit" id="create-btn">Create Card</button>
+                            <div id="edit-buttons" class="hidden" style="display: flex; gap: 10px;">
+                                <button type="button" id="overwrite-btn" class="warning-btn">Overwrite Existing</button>
+                                <button type="button" id="save-as-new-btn">Save as New</button>
+                                <button type="button" id="cancel-edit-btn" class="secondary-btn">Cancel Edit</button>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+
+                <section id="bulk-import-section" class="create-column">
+                    <h3>Bulk Import</h3>
+                    <p class="hint">Format: Name | Mechanical Text | Flavor Text | Tags</p>
+                    <textarea id="bulk-import" placeholder="Example:
+Giant Rat | 2/2 Creature | Squeak | Rat, Beast
+Fireball | Deal 3 damage | Whoosh | Spell, Fire" rows="10"></textarea>
+                    <button id="import-btn">Import</button>
+                </section>
+            </div>
         </div>
 
         <div id="view-library" class="view-section hidden">
