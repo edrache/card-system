@@ -95,7 +95,26 @@ export class DragManager {
                 el.style.left = `${x}px`;
                 el.style.top = `${y}px`;
             });
+
+            // Check for Deck Overlap
+            this.handleDeckOverlap(e);
         }
+    }
+
+    handleDeckOverlap(e) {
+        // Find decks
+        const decks = Array.from(this.container.querySelectorAll('.deck'));
+        const draggedCard = this.draggedElements[0]; // Use the bottom/primary card
+
+        if (!draggedCard) return;
+
+        decks.forEach(deck => {
+            if (this.isOverlapping(draggedCard, deck)) {
+                deck.classList.add('drag-over');
+            } else {
+                deck.classList.remove('drag-over');
+            }
+        });
     }
 
     startDrag(target, e) {
@@ -130,6 +149,33 @@ export class DragManager {
         // The getStack method returns [target, ...cardsOnTop]. So index 0 is the bottom of the moving stack.
 
         const bottomCard = this.draggedElements[0];
+
+        // Check if dropped on a deck
+        const targetDeck = this.container.querySelector('.deck.drag-over');
+        if (targetDeck) {
+            // Dispatch event
+            const event = new CustomEvent('card-dropped-on-deck', {
+                detail: {
+                    cardId: bottomCard.dataset.id,
+                    deckElement: targetDeck,
+                    droppedStack: this.draggedElements // Pass all dragged cards
+                },
+                bubbles: true
+            });
+            this.container.dispatchEvent(event);
+
+            // Cleanup
+            targetDeck.classList.remove('drag-over');
+            this.draggedElements.forEach(el => {
+                el.classList.remove('dragging');
+                delete el.dataset.offsetX;
+                delete el.dataset.offsetY;
+            });
+            this.draggedElements = [];
+            this.isDragging = false;
+            return; // Skip snapping
+        }
+
         this.handleSnapping(bottomCard);
 
         this.draggedElements.forEach(el => {

@@ -45,8 +45,12 @@ function setupEventListeners() {
         dragManager.setScale(scale);
 
         // Scale background
+        // Scale background
         table.style.backgroundSize = `${baseBackgroundSize * scale}px`;
     });
+
+    // Card Drop on Deck
+    tableContent.addEventListener('card-dropped-on-deck', handleCardDroppedOnDeck);
 }
 
 function renderDeckSelect() {
@@ -171,14 +175,109 @@ function renderCardOnTable(card, x, y) {
         <div class="card-body">${card.mechanicalText}</div>
         ${card.flavorText ? `<div class="card-flavor">${card.flavorText}</div>` : ''}
         <div class="card-tags">${card.tags.join(', ')}</div>
+        <button class="create-deck-btn" title="Create Deck from Stack"></button>
     `;
 
+    // Add Create Deck listener
+    const createDeckBtn = cardEl.querySelector('.create-deck-btn');
+    createDeckBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent drag
+        handleCreateDeck(cardEl, card);
+    });
+
     tableContent.appendChild(cardEl);
+}
+
+function handleCreateDeck(topCardEl, topCardData) {
+    // User requested: "Take cards BELOW".
+    // In our Right+Down cascade, "Below" visually means Higher Z-index (on top physically).
+    // So we want the clicked card and everything stacked ON TOP of it (visually cascading down).
+
+    const allCards = Array.from(document.querySelectorAll('.card.draggable'));
+
+    // Sort all cards by Z-index ascending (Bottom to Top)
+    allCards.sort((a, b) => parseInt(a.style.zIndex || 0) - parseInt(b.style.zIndex || 0));
+
+    // Find index of the clicked card
+    const startIndex = allCards.indexOf(topCardEl);
+    if (startIndex === -1) return;
+
+    const stackCards = [topCardEl];
+
+    // Iterate through cards with HIGHER Z-index (candidates for being "below" visually)
+    for (let i = startIndex + 1; i < allCards.length; i++) {
+        const candidate = allCards[i];
+
+        // Check if candidate overlaps with ANY card currently in our stack
+        // This ensures we catch the whole chain even if the first and last don't overlap directly
+        const overlaps = stackCards.some(stackCard => isOverlapping(stackCard, candidate));
+
+        if (overlaps) {
+            stackCards.push(candidate);
+        }
+    }
+
+    if (stackCards.length < 2) {
+        // Optional: Allow single card decks?
+        // Let's allow it, why not.
+    }
+
+    // Extract IDs
+    const cardIds = stackCards.map(el => el.dataset.id);
+
+    // Create new Deck
+    // Name it based on the top card?
+    const newDeck = new Deck(null, `Stack: ${topCardData.name} + ${cardIds.length - 1}`, cardIds, '#475569');
+
+    // Remove card elements from table
+    stackCards.forEach(el => el.remove());
+
+    // Render new Deck at position of the CLICKED card (the "head" of the stack)
+    const x = parseFloat(topCardEl.style.left);
+    const y = parseFloat(topCardEl.style.top);
+
+    renderDeckOnTable(newDeck, x, y);
+}
+
+function isOverlapping(el1, el2) {
+    const rect1 = el1.getBoundingClientRect();
+    const rect2 = el2.getBoundingClientRect();
+
+    return !(rect1.right < rect2.left ||
+        rect1.left > rect2.right ||
+        rect1.bottom < rect2.top ||
+        rect1.top > rect2.bottom);
 }
 
 function handleResetTable() {
     tableContent.innerHTML = '';
     activeDecks = [];
+}
+
+function handleCardDroppedOnDeck(e) {
+    const { cardId, deckElement, droppedStack } = e.detail;
+
+    // Find the deck object
+    const activeDeck = activeDecks.find(d => d.element === deckElement);
+    if (!activeDeck) return;
+
+    const deck = activeDeck.deck;
+
+    // Add all dropped cards to the deck
+    // droppedStack contains elements. We need their IDs.
+
+    const cardsToAdd = droppedStack || [{ dataset: { id: cardId } }];
+
+    cardsToAdd.forEach(el => {
+        const id = el.dataset.id;
+        if (id) {
+            deck.addCard(id);
+            el.remove();
+        }
+    });
+
+    // Update Deck UI
+    updateDeckCount(deckElement, deck);
 }
 
 function handleExportTable() {
