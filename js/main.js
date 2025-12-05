@@ -142,17 +142,71 @@ function drawCard(deck, deckEl) {
     const cardId = deck.cardIds.shift();
     updateDeckCount(deckEl, deck);
 
+    // Handle Special Cards
+    if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
+        const targetDeckId = cardId.split(':')[2];
+        const targetDeck = StorageManager.getDecks().find(d => d.id === targetDeckId);
+
+        if (targetDeck && targetDeck.cardIds.length > 0) {
+            // Pick random card from target
+            const randomIndex = Math.floor(Math.random() * targetDeck.cardIds.length);
+            const randomCardId = targetDeck.cardIds[randomIndex];
+
+            // Resolve to actual card
+            // Note: If the random card is ALSO a special card, should we recurse?
+            // For now, let's assume one level of indirection or simple recursion.
+            // But 'cardId' here was shifted from the deck. The random one is just LOOKED UP, not removed from target (assumed copying/referencing).
+            // Wait, "random card from another deck" -> Does it REMOVE it from that deck?
+            // Usually in digital TCGs "create a random card" implies a copy. "Steal" implies remove.
+            // The requirement said "add a special card... which will be a random card from another deck".
+            // I'll assume COPY behavior (create instance) because modifying the source deck from here (Tabletop) might be unexpected if it's not on the table.
+
+            // We need to fetch the actual card data
+            const allCards = StorageManager.getCards();
+            let realCardData = allCards.find(c => c.id === randomCardId);
+
+            // If the random target is itself special, we might need to handle it.
+            // But simpler to just handle standard cards for now.
+            if (randomCardId.startsWith && randomCardId.startsWith('SPECIAL:')) {
+                // If we picked a special card, we might want to re-roll or just fail gracefully.
+                // Let's just alert for now to avoid infinite loops if target deck is all special cards pointing to each other.
+                alert('Randomly drew another special card! Recursion not supported yet.');
+                return;
+            }
+
+            if (realCardData) {
+                renderCardAtDeck(realCardData, deckEl);
+            }
+        } else {
+            alert('Target deck for random card is missing or empty! Drawing next card...');
+            // Draw next card immediately
+            drawCard(deck, deckEl);
+        }
+        return;
+    }
+
     const allCards = StorageManager.getCards();
     const cardData = allCards.find(c => c.id === cardId);
 
     if (cardData) {
-        // Place card near the deck
-        const rect = deckEl.getBoundingClientRect();
-        const x = rect.left + 160; // To the right of the deck
-        const y = rect.top;
-
-        renderCardOnTable(cardData, x, y);
+        renderCardAtDeck(cardData, deckEl);
     }
+}
+
+function renderCardAtDeck(cardData, deckEl) {
+    const rect = deckEl.getBoundingClientRect();
+    // We need to account for scale when positioning
+    // The rect is screen coordinates, but we append to tableContent which is scaled.
+    // Actually, `activeDecks` stores `element.style.left` which is in table coordinates.
+    // So we can calculate relative to that.
+
+    const deckX = parseFloat(deckEl.style.left);
+    const deckY = parseFloat(deckEl.style.top);
+
+    const x = deckX + 160;
+    const y = deckY;
+
+    renderCardOnTable(cardData, x, y);
 }
 
 function updateDeckCount(deckEl, deck) {
