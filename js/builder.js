@@ -54,6 +54,7 @@ const toastContainer = document.getElementById('toast-container');
 
 // State
 let selectedCards = new Set();
+let expandedDeckIds = new Set();
 
 // Initialization
 function init() {
@@ -606,18 +607,49 @@ function renderDeckList() {
             <button class="delete-deck-btn danger-btn" style="margin-left:auto;">Delete Deck</button>
         `;
 
+        // Special Card Controls
+        const specialControls = document.createElement('div');
+        specialControls.className = 'deck-edit-controls';
+        specialControls.style.borderTop = 'none';
+        specialControls.style.paddingTop = '0';
+
+        let deckOptions = '<option value="">Select Source Deck...</option>';
+        decks.forEach(d => {
+            deckOptions += `<option value="${d.id}">${d.name}</option>`;
+        });
+
+        specialControls.innerHTML = `
+            <span style="align-self:center; font-size:0.9em; white-space:nowrap;">Add Random Card:</span>
+            <select class="special-deck-select" style="flex:1;">${deckOptions}</select>
+            <button class="add-special-btn">Add</button>
+        `;
+
         // Card List
         const cardList = document.createElement('div');
         cardList.className = 'deck-card-list';
 
         deck.cardIds.forEach((cardId, index) => {
-            const card = allCards.find(c => c.id === cardId);
-            if (!card) return;
+            let displayText = '';
+            let isSpecial = false;
+
+            if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
+                const targetDeckId = cardId.split(':')[2];
+                const targetDeck = decks.find(d => d.id === targetDeckId);
+                const targetName = targetDeck ? targetDeck.name : 'Unknown Deck';
+                displayText = `🎲 Random Card from [${targetName}]`;
+                isSpecial = true;
+            } else {
+                const card = allCards.find(c => c.id === cardId);
+                if (!card) return;
+                displayText = `#${card.displayId} ${card.name}`;
+            }
 
             const cardItem = document.createElement('div');
             cardItem.className = 'deck-card-item';
+            if (isSpecial) cardItem.style.backgroundColor = 'rgba(0, 242, 255, 0.05)';
+
             cardItem.innerHTML = `
-                <span>#${card.displayId} ${card.name}</span>
+                <span>${displayText}</span>
                 <button class="remove-card-btn" data-index="${index}">Remove</button>
             `;
 
@@ -631,13 +663,23 @@ function renderDeckList() {
         });
 
         content.appendChild(controls);
+        content.appendChild(specialControls);
         content.appendChild(cardList);
         item.appendChild(header);
         item.appendChild(content);
 
+        if (expandedDeckIds.has(deck.id)) {
+            item.classList.add('expanded');
+        }
+
         // Logic
         header.addEventListener('click', () => {
             item.classList.toggle('expanded');
+            if (item.classList.contains('expanded')) {
+                expandedDeckIds.add(deck.id);
+            } else {
+                expandedDeckIds.delete(deck.id);
+            }
         });
 
         const nameInput = controls.querySelector('.edit-name');
@@ -657,6 +699,19 @@ function renderDeckList() {
             StorageManager.deleteDeck(deck.id);
             renderDeckList();
             showToast('Deck deleted');
+        });
+
+        const specialSelect = specialControls.querySelector('.special-deck-select');
+        const addSpecialBtn = specialControls.querySelector('.add-special-btn');
+
+        addSpecialBtn.addEventListener('click', () => {
+            const targetId = specialSelect.value;
+            if (!targetId) return showToast('Please select a source deck', true);
+
+            deck.addCard(`SPECIAL:RANDOM:${targetId}`);
+            StorageManager.saveDeck(deck);
+            renderDeckList();
+            showToast('Special card added');
         });
 
         deckList.appendChild(item);
