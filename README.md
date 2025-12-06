@@ -33,18 +33,25 @@ A web-based tabletop card system that allows you to create cards and play with t
     -   **Interactivity:** Click on the underlined variable text or the attached mini-card to spawn a full copy of the referenced card on the table.
 
 ### 2. Tabletop Interface
+-   **Visual Style**: "Blueprint Theme" - High-contrast, dark mode, technical aesthetic with monochromatic elements.
 -   **Drag & Drop**: Freely move cards and decks around the table.
+-   **Box Selection**: Click and drag on the empty table background to select multiple cards. Move them all at once!
+-   **Card Actions**:
+    -   **Flip**: Right-click a card to flip it face-down/face-up.
+    -   **Zoom/Details**: Click a variable link to spawn referenced cards.
 -   **Smart Stacking**:
     -   Drag a card over another (>50% overlap) to snap them together.
     -   Drag the bottom card to move the entire stack.
-    -   Drag the top card to separate it.
+    -   Cards in a stack automatically offset for visibility.
 -   **Deck Controls**:
-    -   **Draw**: Click the "Draw" button on the deck to reveal a card.
-    -   **Shuffle**: Click the "Shuffle" button to randomize the deck.
-    -   **Visuals**: Decks display their assigned color from the builder.
+    -   **Draw**: Click "Draw" (or the deck body) to reveal a card. Cards animatedly "fly out" to the right.
+    -   **Shuffle**: Click "Shuffle" to randomize.
+    -   **Rename**: Click the deck name on the table to rename it on the fly.
+    -   **Color**: Decks inherit their color from the Builder (displayed as a border/accent).
 -   **Table Management**:
-    -   **Zoomable Table**: Use the **Mouse Wheel** to zoom in and out.
-    -   **Import/Export**: Save the entire table state (including card definitions) to a file and restore it later. Perfect for saving games or sharing setups.
+    -   **Infinite Canvas**: A massive 3000x3000px workspace.
+    -   **Zoomable Table**: Use **Mouse Wheel** to zoom from 0.2x (bird's eye view) to 3x (close up).
+    -   **Import/Export**: Save/Load table state (JSON).
 
 ## How to Run
 
@@ -60,4 +67,4 @@ A web-based tabletop card system that allows you to create cards and play with t
 
 ## Customization
 
--   **Background Pattern**: You can adjust the base size of the background pattern in `css/style.css` (look for `#table` styles).
+-   **Theme**: The visuals are controlled by CSS variables in `css/style.css` (Look for Blueprint Palette).

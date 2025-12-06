@@ -822,11 +822,14 @@ function setupHelp() {
             <h3>Controls</h3>
             <ul>
                 <li><strong>Drag & Drop:</strong> Move cards and decks freely.</li>
-                <li><strong>Zoom:</strong> Use mouse wheel to zoom in/out.</li>
-                <li><strong>Draw:</strong> Click "Draw" on a deck to reveal a card.</li>
+                <li><strong>Selection:</strong> Drag on empty background to select multiple cards.</li>
+                <li><strong>Zoom:</strong> Mouse wheel to zoom (0.2x - 3x).</li>
+                <li><strong>Flip Card:</strong> Right-Click a card to flip it face-down.</li>
+                <li><strong>Draw:</strong> Click "Draw" on a deck. Cards fly out to the right.</li>
+                <li><strong>Rename Deck:</strong> Click the deck name on the table to edit.</li>
                 <li><strong>Shuffle:</strong> Click "Shuffle" to randomize a deck.</li>
-                <li><strong>Random Cards:</strong> Some decks may contain special cards that pull a random card from another deck. If "Finite", they draw from a visible side deck until it's empty.</li>
-                <li><strong>Variable Substitution:</strong> Cards with placeholders (e.g., {ITEM}) draw from other decks automatically. <strong>Note: The referenced deck must be present on the table!</strong></li>
+                <li><strong>Random Cards:</strong> Finite/Infinite modes supported.</li>
+                <li><strong>Variables:</strong> Cards with {ITEM} placeholders draw automatically. Underlying decks must be on table.</li>
             </ul>
             <h3>Interactions</h3>
             <ul>
