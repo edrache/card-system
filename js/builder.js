@@ -460,7 +460,7 @@ function handleCreateDeck() {
     const name = deckNameInput.value;
     if (!name) return alert('Please enter a deck name');
 
-    const newDeck = new Deck(null, name, [], '#34495e'); // Default color
+    const newDeck = new Deck(null, name, [], generateRandomColor()); // Random color
     StorageManager.saveDeck(newDeck);
 
     deckNameInput.value = '';
@@ -563,6 +563,7 @@ function getHelpContent(viewName) {
                     <li><strong>Create Deck:</strong> Enter a name and click create.</li>
                     <li><strong>Edit Deck:</strong> Expand a deck to change its name or <strong>Color</strong>.</li>
                     <li><strong>Manage Cards:</strong> Remove individual cards from the list.</li>
+                    <li><strong>Special Cards:</strong> Add a "Random Card" that pulls from another deck. Check "Finite" to make it draw from a shared, depletable pile.</li>
                     <li><strong>Export/Import:</strong> Backup or restore your decks.</li>
                 </ul>
             `;
@@ -621,6 +622,9 @@ function renderDeckList() {
         specialControls.innerHTML = `
             <span style="align-self:center; font-size:0.9em; white-space:nowrap;">Add Random Card:</span>
             <select class="special-deck-select" style="flex:1;">${deckOptions}</select>
+            <label style="display:flex; align-items:center; gap:4px; font-size:0.8em; cursor:pointer;" title="If checked, draws from a shared, finite pile on the table.">
+                <input type="checkbox" class="finite-mode-checkbox"> Finite
+            </label>
             <button class="add-special-btn">Add</button>
         `;
 
@@ -634,9 +638,10 @@ function renderDeckList() {
 
             if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
                 const targetDeckId = cardId.split(':')[2];
+                const isFinite = cardId.includes(':FINITE');
                 const targetDeck = decks.find(d => d.id === targetDeckId);
                 const targetName = targetDeck ? targetDeck.name : 'Unknown Deck';
-                displayText = `🎲 Random Card from [${targetName}]`;
+                displayText = `🎲 Random Card from [${targetName}]${isFinite ? ' (Finite)' : ''}`;
                 isSpecial = true;
             } else {
                 const card = allCards.find(c => c.id === cardId);
@@ -706,9 +711,10 @@ function renderDeckList() {
 
         addSpecialBtn.addEventListener('click', () => {
             const targetId = specialSelect.value;
+            const isFinite = specialControls.querySelector('.finite-mode-checkbox').checked;
             if (!targetId) return showToast('Please select a source deck', true);
 
-            deck.addCard(`SPECIAL:RANDOM:${targetId}`);
+            deck.addCard(`SPECIAL:RANDOM:${targetId}${isFinite ? ':FINITE' : ''}`);
             StorageManager.saveDeck(deck);
             renderDeckList();
             showToast('Special card added');
@@ -757,3 +763,40 @@ function showToast(message, isError = false) {
 }
 
 init();
+
+function generateRandomColor() {
+    const h = Math.floor(Math.random() * 360);
+    const s = 70;
+    const l = 45; // HSL lightness roughly maps to Value but is easier in CSS/JS usually. 
+    // User asked for HSV S and V same. 
+    // Let's use HSL for CSS compatibility or convert HSV to Hex.
+    // Requirement: "HSV, where S and V are same and H is random".
+    // Let's assume S=0.7, V=0.9.
+
+    return hsvToHex(h, 0.7, 0.4);
+}
+
+function hsvToHex(h, s, v) {
+    let r, g, b;
+    const i = Math.floor(h / 60);
+    const f = h / 60 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+
+    switch (i % 6) {
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+    }
+
+    const toHex = x => {
+        const hex = Math.round(x * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}

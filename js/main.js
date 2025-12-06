@@ -15,14 +15,31 @@ const importTableBtn = document.getElementById('import-table-btn');
 const importTableFile = document.getElementById('import-table-file');
 
 const dragManager = new DragManager('table-content'); // Use inner container
+let connectionLayer = null; // SVG layer for connections
 
 // State
 let activeDecks = [];
 let scale = 1;
 
 function init() {
+    setupConnectionLayer();
     renderDeckSelect();
     setupEventListeners();
+
+    // Animation loop for updating lines
+    requestAnimationFrame(updateConnections);
+}
+
+function setupConnectionLayer() {
+    connectionLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    connectionLayer.style.position = 'absolute';
+    connectionLayer.style.top = '0';
+    connectionLayer.style.left = '0';
+    connectionLayer.style.width = '100%';
+    connectionLayer.style.height = '100%';
+    connectionLayer.style.pointerEvents = 'none'; // Click-through
+    connectionLayer.style.zIndex = '0'; // Behind everything
+    tableContent.insertBefore(connectionLayer, tableContent.firstChild);
 }
 
 function setupEventListeners() {
@@ -131,6 +148,98 @@ function renderDeckOnTable(deck, x, y) {
 
     tableContent.appendChild(deckEl);
     activeDecks.push({ deck, element: deckEl });
+
+    // Check for Finite Special Cards and spawn side decks
+    spawnSideDecksIfNeeded(deck, deckEl);
+}
+
+function spawnSideDecksIfNeeded(sourceDeck, sourceDeckEl) {
+    const decks = StorageManager.getDecks();
+
+    sourceDeck.cardIds.forEach(cardId => {
+        if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:') && cardId.includes(':FINITE')) {
+            const parts = cardId.split(':');
+            const targetDeckId = parts[2];
+
+            // Check if target deck is already on table
+            // We need a way to identify if a deck on table IS this specific instance
+            // But here we want a NEW instance for this specific source deck relationship?
+            // User said: "draw from the same instance of the selected deck".
+            // If multiple cards point to the same deck, they should share it.
+            // So we check if we already spawned a deck with this ID *linked* to this game session?
+            // Or just check if ANY deck with this ID exists?
+            // "visible as a smaller deck"
+
+            let targetDeckInstance = activeDecks.find(d => d.deck.id === targetDeckId);
+
+            if (!targetDeckInstance) {
+                const targetDeckData = decks.find(d => d.id === targetDeckId);
+                if (targetDeckData) {
+                    // Spawn it
+                    const sourceRect = sourceDeckEl.getBoundingClientRect(); // Screen coords
+                    // We need table coords. 
+                    const sourceX = parseFloat(sourceDeckEl.style.left);
+                    const sourceY = parseFloat(sourceDeckEl.style.top);
+
+                    // Position it nearby (e.g., 200px to the right)
+                    const targetX = sourceX + 250;
+                    const targetY = sourceY;
+
+                    const newDeckInstance = Deck.fromJSON(JSON.parse(JSON.stringify(targetDeckData)));
+                    renderDeckOnTable(newDeckInstance, targetX, targetY);
+
+                    // Find the element we just added
+                    targetDeckInstance = activeDecks[activeDecks.length - 1];
+
+                    // Style it as "Side Deck"
+                    targetDeckInstance.element.classList.add('side-deck');
+                    targetDeckInstance.element.style.transform = 'scale(0.8)';
+                    targetDeckInstance.element.style.border = '2px dashed #fff';
+                }
+            }
+
+            // Register connection
+            if (targetDeckInstance) {
+                registerConnection(sourceDeckEl, targetDeckInstance.element);
+            }
+        }
+    });
+}
+
+const activeConnections = [];
+
+function registerConnection(sourceEl, targetEl) {
+    // Avoid duplicates
+    if (activeConnections.some(c => c.source === sourceEl && c.target === targetEl)) return;
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('stroke', 'rgba(255, 255, 255, 0.3)');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5,5');
+    connectionLayer.appendChild(line);
+
+    activeConnections.push({ source: sourceEl, target: targetEl, line });
+}
+
+function updateConnections() {
+    activeConnections.forEach(conn => {
+        // We need coordinates relative to the table-content container
+        // Since the SVG is inside table-content, we can use the element's style.left/top
+        // BUT, elements might be dragged, so we should use their current position.
+        // Elements use style.left/top for position.
+
+        const x1 = parseFloat(conn.source.style.left) + conn.source.offsetWidth / 2;
+        const y1 = parseFloat(conn.source.style.top) + conn.source.offsetHeight / 2;
+        const x2 = parseFloat(conn.target.style.left) + conn.target.offsetWidth / 2;
+        const y2 = parseFloat(conn.target.style.top) + conn.target.offsetHeight / 2;
+
+        conn.line.setAttribute('x1', x1);
+        conn.line.setAttribute('y1', y1);
+        conn.line.setAttribute('x2', x2);
+        conn.line.setAttribute('y2', y2);
+    });
+
+    requestAnimationFrame(updateConnections);
 }
 
 function drawCard(deck, deckEl) {
@@ -144,7 +253,33 @@ function drawCard(deck, deckEl) {
 
     // Handle Special Cards
     if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
-        const targetDeckId = cardId.split(':')[2];
+        const parts = cardId.split(':');
+        const targetDeckId = parts[2];
+        const isFinite = cardId.includes(':FINITE');
+
+        if (isFinite) {
+            // Finite Mode: Draw from the linked side deck instance
+            const targetDeckInstance = activeDecks.find(d => d.deck.id === targetDeckId && d.element.classList.contains('side-deck'));
+
+            if (targetDeckInstance && targetDeckInstance.deck.cardIds.length > 0) {
+                // Draw from side deck
+                const drawnCardId = targetDeckInstance.deck.cardIds.shift();
+                updateDeckCount(targetDeckInstance.element, targetDeckInstance.deck);
+
+                // Render the card at the SOURCE deck's position (as if drawn from it)
+                const allCards = StorageManager.getCards();
+                const realCardData = allCards.find(c => c.id === drawnCardId);
+
+                if (realCardData) {
+                    renderCardAtDeck(realCardData, deckEl, targetDeckInstance.deck.color);
+                }
+            } else {
+                alert('Linked side deck is empty!');
+            }
+            return;
+        }
+
+        // Infinite Mode: Random copy
         const targetDeck = StorageManager.getDecks().find(d => d.id === targetDeckId);
 
         if (targetDeck && targetDeck.cardIds.length > 0) {
@@ -175,7 +310,7 @@ function drawCard(deck, deckEl) {
             }
 
             if (realCardData) {
-                renderCardAtDeck(realCardData, deckEl);
+                renderCardAtDeck(realCardData, deckEl, deck.color);
             }
         } else {
             alert('Target deck for random card is missing or empty! Drawing next card...');
@@ -189,11 +324,11 @@ function drawCard(deck, deckEl) {
     const cardData = allCards.find(c => c.id === cardId);
 
     if (cardData) {
-        renderCardAtDeck(cardData, deckEl);
+        renderCardAtDeck(cardData, deckEl, deck.color);
     }
 }
 
-function renderCardAtDeck(cardData, deckEl) {
+function renderCardAtDeck(cardData, deckEl, color) {
     const rect = deckEl.getBoundingClientRect();
     // We need to account for scale when positioning
     // The rect is screen coordinates, but we append to tableContent which is scaled.
@@ -206,7 +341,7 @@ function renderCardAtDeck(cardData, deckEl) {
     const x = deckX + 160;
     const y = deckY;
 
-    renderCardOnTable(cardData, x, y);
+    renderCardOnTable(cardData, x, y, color);
 }
 
 function updateDeckCount(deckEl, deck) {
@@ -216,16 +351,21 @@ function updateDeckCount(deckEl, deck) {
     }
 }
 
-function renderCardOnTable(card, x, y) {
+function renderCardOnTable(card, x, y, color = null) {
     const cardEl = document.createElement('div');
     cardEl.className = 'card draggable';
     cardEl.dataset.id = card.id;
+    if (color) {
+        cardEl.dataset.color = color;
+    }
     cardEl.style.left = `${x}px`;
     cardEl.style.top = `${y}px`;
     cardEl.style.zIndex = DragManager.getNextZIndex();
 
+    const headerStyle = color ? `style="background-color: ${color}; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);"` : '';
+
     cardEl.innerHTML = `
-        <div class="card-header">${card.name}</div>
+        <div class="card-header" ${headerStyle}>${card.name}</div>
         <div class="card-body">${card.mechanicalText}</div>
         ${card.flavorText ? `<div class="card-flavor">${card.flavorText}</div>` : ''}
         <div class="card-tags">${card.tags.join(', ')}</div>
@@ -366,11 +506,13 @@ function handleExportTable() {
         // Wait, we didn't add data-id to renderCardOnTable. We need to fix that first.
         // Assuming we fix renderCardOnTable to add data-id:
         const id = cardEl.dataset.id;
+        const color = cardEl.dataset.color;
         if (id) {
             tableState.cards.push({
                 x: parseFloat(cardEl.style.left),
                 y: parseFloat(cardEl.style.top),
-                cardId: id
+                cardId: id,
+                color: color
             });
         }
     });
@@ -422,7 +564,7 @@ async function handleImportTable(e) {
             data.tableState.cards.forEach(cState => {
                 const card = allCards.find(c => c.id === cState.cardId);
                 if (card) {
-                    renderCardOnTable(card, cState.x, cState.y);
+                    renderCardOnTable(card, cState.x, cState.y, cState.color);
                 }
             });
         }
@@ -454,6 +596,7 @@ function setupHelp() {
                 <li><strong>Zoom:</strong> Use mouse wheel to zoom in/out.</li>
                 <li><strong>Draw:</strong> Click "Draw" on a deck to reveal a card.</li>
                 <li><strong>Shuffle:</strong> Click "Shuffle" to randomize a deck.</li>
+                <li><strong>Random Cards:</strong> Some decks may contain special cards that pull a random card from another deck. If "Finite", they draw from a visible side deck until it's empty.</li>
             </ul>
             <h3>Interactions</h3>
             <ul>

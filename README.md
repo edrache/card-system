@@ -17,7 +17,13 @@ A web-based tabletop card system that allows you to create cards and play with t
 -   **Deck Builder**:
     -   **Accordion Layout**: Manage multiple decks easily.
     -   **Customization**: Set deck names and colors.
-    -   **Import/Export**: Export your Library and Decks to JSON for backup or sharing.
+    -   **Import/Export**: Save and load your library, decks, and table state.
+
+## Special Cards
+
+- **Random Card:** You can add a "Random Card" to a deck in the Deck Builder. When drawn during a game, this card will be replaced by a random card from a specified source deck.
+    -   **Infinite Mode (Default):** Draws a random copy from the source deck definition. The source deck is not affected.
+    -   **Finite Mode:** Spawns a physical side deck on the table. Cards are drawn from this specific instance and can run out.
 
 ### 2. Tabletop Interface
 -   **Drag & Drop**: Freely move cards and decks around the table.
