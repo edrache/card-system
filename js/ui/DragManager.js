@@ -1,6 +1,7 @@
 export class DragManager {
-    constructor(containerId) {
+    constructor(containerId, gridSize = 1) {
         this.container = document.getElementById(containerId);
+        this.gridSize = gridSize;
         this.draggedElements = []; // Changed from single element to array
         this.offsetY = 0;
         this.startX = 0;
@@ -89,8 +90,14 @@ export class DragManager {
                 // Wait, offsetX was calculated as (e.clientX - rect.left).
                 // If we divide everything by scale, it should work.
 
-                const x = (e.clientX - containerRect.left - offsetX) / this.scale;
-                const y = (e.clientY - containerRect.top - offsetY) / this.scale;
+                let x = (e.clientX - containerRect.left - offsetX) / this.scale;
+                let y = (e.clientY - containerRect.top - offsetY) / this.scale;
+
+                // Snap to Grid
+                if (this.gridSize > 1) {
+                    x = Math.round(x / this.gridSize) * this.gridSize;
+                    y = Math.round(y / this.gridSize) * this.gridSize;
+                }
 
                 el.style.left = `${x}px`;
                 el.style.top = `${y}px`;
@@ -309,11 +316,22 @@ export class DragManager {
             const deltaY = newTop - currentTop;
 
             // Apply delta to ALL dragged elements to keep them relative to each other
+            // Apply delta to ALL dragged elements to keep them relative to each other
             this.draggedElements.forEach(el => {
-                const elLeft = parseFloat(el.style.left);
-                const elTop = parseFloat(el.style.top);
-                el.style.left = `${elLeft + deltaX}px`;
-                el.style.top = `${elTop + deltaY}px`;
+                let elLeft = parseFloat(el.style.left);
+                let elTop = parseFloat(el.style.top);
+                const newX = elLeft + deltaX;
+                const newY = elTop + deltaY;
+
+                // If no target (stacking), we rely on move snap.
+                // But here we are snapping to a target card.
+                // Should we enforce grid on the resulting position?
+                // The target card might not be on grid if pre-update.
+                // But generally "Snap to Grid" > "Stack Offset precision".
+                // Let's assume user wants to keep the stack offset primarily.
+
+                el.style.left = `${newX}px`;
+                el.style.top = `${newY}px`;
             });
         }
     }

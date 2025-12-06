@@ -14,7 +14,7 @@ const exportTableBtn = document.getElementById('export-table-btn');
 const importTableBtn = document.getElementById('import-table-btn');
 const importTableFile = document.getElementById('import-table-file');
 
-const dragManager = new DragManager('table-content'); // Use inner container
+const dragManager = new DragManager('table-content', 15); // 15px snap grid
 let connectionLayer = null; // SVG layer for connections
 
 // State
@@ -61,9 +61,9 @@ function setupEventListeners() {
         tableContent.style.transform = `scale(${scale})`;
         dragManager.setScale(scale);
 
-        // Scale background
-        // Scale background
-        table.style.backgroundSize = `${baseBackgroundSize * scale}px`;
+        // Match CSS default for large grid (150px)
+        const baseGridSize = 150;
+        table.style.backgroundSize = `${15 * scale}px ${15 * scale}px, ${15 * scale}px ${15 * scale}px, ${baseGridSize * scale}px ${baseGridSize * scale}px, ${baseGridSize * scale}px ${baseGridSize * scale}px`;
     });
 
     // Card Drop on Deck
@@ -120,7 +120,12 @@ function handleAddDeck() {
     const x = 50 + Math.random() * 200;
     const y = 50 + Math.random() * 200;
 
-    renderDeckOnTable(deckInstance, x, y);
+    // Snap initial placement
+    const snap = 15;
+    const snappedX = Math.round(x / snap) * snap;
+    const snappedY = Math.round(y / snap) * snap;
+
+    renderDeckOnTable(deckInstance, snappedX, snappedY);
 }
 
 function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = false) {
@@ -577,11 +582,13 @@ function handleCreateDeck(topCardEl, topCardData) {
     // Remove card elements from table
     stackCards.forEach(el => el.remove());
 
-    // Render new Deck at position of the CLICKED card (the "head" of the stack)
-    const x = parseFloat(topCardEl.style.left);
-    const y = parseFloat(topCardEl.style.top);
 
-    renderDeckOnTable(newDeck, x, y);
+    // Snap it? Dragging likely snapped it already, but good to ensure.
+    const snap = 15;
+    const snappedX = Math.round(x / snap) * snap;
+    const snappedY = Math.round(y / snap) * snap;
+
+    renderDeckOnTable(newDeck, snappedX, snappedY);
 }
 
 function isOverlapping(el1, el2) {

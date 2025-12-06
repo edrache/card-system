@@ -39,10 +39,10 @@ const importLibraryBtn = document.getElementById('import-library-btn');
 const importLibraryFile = document.getElementById('import-library-file');
 
 // Deck Builder View Elements
-const deckNameInput = document.getElementById('deck-name');
-const createDeckBtn = document.getElementById('create-deck-btn');
-const exportDecksBtn = document.getElementById('export-decks-btn');
-const importDecksBtn = document.getElementById('import-decks-btn');
+// const deckNameInput = document.getElementById('deck-name'); // Removed
+// const createDeckBtn = document.getElementById('create-deck-btn'); // Removed
+// const exportDecksBtn = document.getElementById('export-decks-btn'); // Removed
+// const importDecksBtn = document.getElementById('import-decks-btn'); // Removed
 const importDecksFile = document.getElementById('import-decks-file');
 const deckList = document.getElementById('deck-list');
 const activeDeckView = document.getElementById('active-deck-view');
@@ -123,9 +123,9 @@ function setupEventListeners() {
     importLibraryFile.addEventListener('change', handleImportLibrary);
 
     // Deck Builder View
-    createDeckBtn.addEventListener('click', handleCreateDeck);
-    exportDecksBtn.addEventListener('click', handleExportDecks);
-    importDecksBtn.addEventListener('click', () => importDecksFile.click());
+    // createDeckBtn.addEventListener('click', handleCreateDeck); // Removed
+    // exportDecksBtn.addEventListener('click', handleExportDecks); // Removed
+    // importDecksBtn.addEventListener('click', () => importDecksFile.click()); // Removed
     importDecksFile.addEventListener('change', handleImportDecks);
 
     // Modal
@@ -457,17 +457,7 @@ function updateDeckSelects() {
 
 // --- Deck Builder View Logic ---
 
-function handleCreateDeck() {
-    const name = deckNameInput.value;
-    if (!name) return alert('Please enter a deck name');
-
-    const newDeck = new Deck(null, name, [], generateRandomColor()); // Random color
-    StorageManager.saveDeck(newDeck);
-
-    deckNameInput.value = '';
-    renderDeckList();
-    showToast(`Created deck: ${name}`);
-}
+// function handleCreateDeck() { ... } // Removed
 
 function handleExportDecks() {
     const data = StorageManager.exportDecks();
@@ -588,42 +578,94 @@ function renderDeckList() {
     const decks = StorageManager.getDecks();
     deckList.innerHTML = '';
 
-    if (decks.length === 0) {
-        deckList.innerHTML = '<div style="color:var(--text-light); text-align:center; padding:10px;">No decks created</div>';
-        return;
-    }
+    // Add 'Create New Deck' Input at the TOP
+    const createContainer = document.createElement('div');
+    createContainer.style.padding = '10px';
+    createContainer.style.marginBottom = '10px';
+    createContainer.style.borderBottom = '1px solid var(--border-color)';
+    createContainer.innerHTML = `
+        <div class="input-group">
+            <input type="text" id="new-deck-name-inline" placeholder="New Deck Name" style="width:100%; margin-bottom:5px;">
+            <button id="add-deck-btn-inline" class="btn primary-btn" style="width:100%">+ Create Deck</button>
+        </div>
+    `;
+    deckList.appendChild(createContainer);
 
-    decks.forEach(deck => {
-        const item = document.createElement('div');
-        item.className = `deck-item-simple ${selectedDeckId === deck.id ? 'active' : ''}`;
-        item.style.padding = '10px';
-        item.style.cursor = 'pointer';
-        item.style.marginBottom = '5px';
-        item.style.borderRadius = 'var(--radius-md)';
-        item.style.backgroundColor = selectedDeckId === deck.id ? 'rgba(0, 242, 255, 0.1)' : 'var(--card-bg)';
-        item.style.border = `1px solid ${selectedDeckId === deck.id ? 'var(--primary-color)' : 'var(--border-color)'}`;
+    // Event listeners for the new inline controls
+    const newDeckInput = createContainer.querySelector('#new-deck-name-inline');
+    const newDeckBtn = createContainer.querySelector('#add-deck-btn-inline');
 
-        item.innerHTML = `
-            <div style="display:flex; align-items:center;">
-                <span style="display:inline-block; width:12px; height:12px; background-color:${deck.color || '#34495e'}; margin-right:8px; border-radius:2px;"></span>
-                <strong>${deck.name}</strong>
-            </div>
-            <div style="font-size:0.8em; color:var(--text-light); margin-top:2px; margin-left:20px;">
-                ${deck.cardIds.length} cards
-            </div>
-        `;
+    const handleAdd = () => {
+        const name = newDeckInput.value.trim();
+        if (name) {
+            const newDeck = new Deck(null, name, [], generateRandomColor());
+            // Default Variable Name from Deck Name (uppercase, no spaces)
+            newDeck.variableName = name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
 
-        item.addEventListener('click', () => {
-            selectedDeckId = deck.id;
-            renderDeckList(); // Re-render to update active state
-            renderActiveDeck();
-        });
+            StorageManager.saveDeck(newDeck);
+            newDeckInput.value = '';
+            selectedDeckId = newDeck.id; // Auto select
+            renderDeckList();
+            showToast('Deck Created');
+        }
+    };
 
-        deckList.appendChild(item);
+    newDeckBtn.addEventListener('click', handleAdd);
+    newDeckInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAdd();
     });
 
-    // Also update the active view
-    renderActiveDeck();
+    if (decks.length === 0) {
+        const msg = document.createElement('div');
+        msg.innerHTML = '<div style="color:var(--text-light); text-align:center; padding:10px;">No decks yet. Create one above!</div>';
+        deckList.appendChild(msg);
+    } else {
+        decks.forEach(deck => {
+            const item = document.createElement('div');
+            item.className = `deck-item-simple ${selectedDeckId === deck.id ? 'active' : ''}`;
+            item.style.padding = '10px';
+            item.style.cursor = 'pointer';
+            item.style.marginBottom = '5px';
+            item.style.borderRadius = 'var(--radius-md)';
+            item.style.backgroundColor = selectedDeckId === deck.id ? 'rgba(0, 242, 255, 0.1)' : 'var(--card-bg)';
+            item.style.border = `1px solid ${selectedDeckId === deck.id ? 'var(--primary-color)' : 'var(--border-color)'}`;
+
+            item.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <span style="display:inline-block; width:12px; height:12px; background-color:${deck.color || '#34495e'}; margin-right:8px; border-radius:2px;"></span>
+                    <strong>${deck.name}</strong>
+                </div>
+                <div style="font-size:0.8em; color:var(--text-light); margin-top:2px; margin-left:20px;">
+                    ${deck.cardIds.length} cards
+                </div>
+            `;
+
+            item.addEventListener('click', () => {
+                selectedDeckId = deck.id;
+                renderDeckList(); // Re-render to update active state
+                renderActiveDeck();
+            });
+
+            deckList.appendChild(item);
+        });
+    }
+
+    // Add 'Import/Export' Controls at the BOTTOM of the list
+    const ioContainer = document.createElement('div');
+    ioContainer.style.padding = '10px';
+    ioContainer.style.marginTop = '10px';
+    ioContainer.style.borderTop = '1px solid var(--border-color)';
+    ioContainer.innerHTML = `
+        <div style="display:flex; gap:5px;">
+            <button id="export-decks-inline" class="secondary-btn" style="flex:1; font-size:0.8em;">Export Decks</button>
+            <button id="import-decks-inline" class="secondary-btn" style="flex:1; font-size:0.8em;">Import Decks</button>
+        </div>
+    `;
+    deckList.appendChild(ioContainer);
+
+    // Dynamic Listeners for IO
+    ioContainer.querySelector('#export-decks-inline').addEventListener('click', handleExportDecks);
+    ioContainer.querySelector('#import-decks-inline').addEventListener('click', () => importDecksFile.click());
 }
 
 // --- Shared Logic ---
