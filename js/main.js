@@ -133,11 +133,20 @@ function renderDeckOnTable(deck, x, y) {
         deckEl.style.backgroundColor = deck.color;
     }
     deckEl.innerHTML = `
-        <div style="text-align: center;">
-            <strong>${deck.name}</strong><br>
-            <span class="card-count" style="font-size: 0.8em; opacity: 0.8;">${deck.cardIds.length} cards</span>
+        <div style="text-align: center; width:100%; padding:0 10px; box-sizing:border-box;">
+            <input type="text" value="${deck.name}" class="deck-name-input" title="Rename deck on table">
+            <span class="card-count" style="font-size: 0.8em; opacity: 0.8; display:block;">${deck.cardIds.length} cards</span>
         </div>
     `;
+
+    // Add Rename Listener
+    const nameInput = deckEl.querySelector('.deck-name-input');
+    nameInput.addEventListener('change', (e) => {
+        deck.name = e.target.value.trim() || 'Deck';
+    });
+    // Prevent drag when editing
+    nameInput.addEventListener('mousedown', (e) => e.stopPropagation());
+    nameInput.addEventListener('click', (e) => e.stopPropagation());
 
     const deckControls = document.createElement('div');
     deckControls.className = 'deck-controls';

@@ -1142,4 +1142,26 @@ button:active {
     font-weight: bold;
     left: 1px;
     top: -1px;
+}/* Deck Renaming Input */
+.deck-name-input {
+    background: transparent !important;
+    border: none !important;
+    color: white !important;
+    font-weight: bold;
+    text-align: center;
+    width: 100%;
+    padding: 2px 0;
+    margin-bottom: 2px;
+    font-size: 1rem;
+    box-shadow: none !important;
+    border-radius: 4px;
+}
+
+.deck-name-input:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.deck-name-input:focus {
+    background: rgba(0, 0, 0, 0.4) !important;
+    outline: 1px solid rgba(255, 255, 255, 0.3);
 }
