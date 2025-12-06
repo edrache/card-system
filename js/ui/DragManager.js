@@ -128,10 +128,30 @@ export class DragManager {
         this.isDragging = true;
         this.potentialDragTarget = null;
 
-        // Identify the stack
-        this.draggedElements = this.getStack(target);
+        // Check if target is part of a multi-selection
+        if (target.classList.contains('selected')) {
+            // Drag ALL selected elements
+            this.draggedElements = Array.from(this.container.querySelectorAll('.selected'));
+        } else {
+            // Target is NOT selected. 
+            // 1. Clear existing selection (single click behavior)
+            const selected = this.container.querySelectorAll('.selected');
+            selected.forEach(el => el.classList.remove('selected'));
+
+            // 2. Identify the stack (default behavior)
+            this.draggedElements = this.getStack(target);
+
+            // 3. Mark these as selected? 
+            // Usually dragging selects the item.
+            this.draggedElements.forEach(el => el.classList.add('selected'));
+        }
 
         // Bring stack to front, preserving order
+        // Sort by DOM order or Z-index to preserve relative layering?
+        // If we just loop and set new Z-index, we might shuffle them.
+        // Let's sort draggedElements by their current Z-index first
+        this.draggedElements.sort((a, b) => (parseInt(a.style.zIndex || 0) - parseInt(b.style.zIndex || 0)));
+
         this.draggedElements.forEach(el => {
             el.style.zIndex = DragManager.getNextZIndex();
             el.classList.add('dragging');

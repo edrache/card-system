@@ -1174,6 +1174,24 @@ button:active {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
+/* Selection Box */
+.selection-box {
+    position: absolute;
+    border: 1px solid var(--primary-color);
+    background-color: rgba(0, 242, 255, 0.1);
+    pointer-events: none;
+    /* Let clicks pass through */
+    z-index: 9999;
+}
+
+/* Selected State */
+.draggable.selected {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 10px var(--primary-color), 0 0 20px rgba(0, 242, 255, 0.2) !important;
+    z-index: 1001;
+    /* Slightly above others */
+}
+
 .deck-name-input:focus {
     background: rgba(0, 0, 0, 0.4) !important;
     outline: 1px solid rgba(255, 255, 255, 0.3);

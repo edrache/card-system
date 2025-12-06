@@ -21,6 +21,11 @@ let connectionLayer = null; // SVG layer for connections
 let activeDecks = [];
 let scale = 1;
 
+// Selection State
+let isSelecting = false;
+let selectionStart = { x: 0, y: 0 };
+let selectionBox = null;
+
 function init() {
     setupConnectionLayer();
     renderDeckSelect();
@@ -89,6 +94,32 @@ function setupEventListeners() {
                     renderCardOnTable(card, clickX + 20, clickY + 20);
                 }
             }
+        }
+    });
+
+    // --- Box Selection Logic ---
+    table.addEventListener('mousedown', (e) => {
+        // Only start if clicking on the background (empty table)
+        if (e.target === table || e.target === tableContent || e.target === connectionLayer) {
+            if (e.button === 0) { // Left click only
+                startSelection(e);
+            }
+        } else if (!e.target.closest('.draggable') && !e.target.closest('.nav-btn')) {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                if (e.button === 0) startSelection(e);
+            }
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isSelecting) {
+            updateSelection(e);
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (isSelecting) {
+            endSelection(e);
         }
     });
 }
@@ -831,3 +862,80 @@ function flipCard(cardEl) {
 }
 
 init();
+function startSelection(e) {
+    isSelecting = true;
+
+    // Calculate start position relative to table-content (scaled world)
+    // We attach transparent box to tableContent so it scales with everything
+    const rect = tableContent.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+
+    selectionStart = { x, y };
+
+    // Create box
+    selectionBox = document.createElement('div');
+    selectionBox.className = 'selection-box';
+    selectionBox.style.left = `${x}px`;
+    selectionBox.style.top = `${y}px`;
+    selectionBox.style.width = '0px';
+    selectionBox.style.height = '0px';
+    tableContent.appendChild(selectionBox);
+
+    // Clear previous selection unless Shift held?
+    if (!e.shiftKey) {
+        clearSelection();
+    }
+}
+
+function updateSelection(e) {
+    if (!selectionBox) return;
+
+    const rect = tableContent.getBoundingClientRect();
+    const currentX = (e.clientX - rect.left) / scale;
+    const currentY = (e.clientY - rect.top) / scale;
+
+    const startX = selectionStart.x;
+    const startY = selectionStart.y;
+
+    const minX = Math.min(startX, currentX);
+    const minY = Math.min(startY, currentY);
+    const width = Math.abs(currentX - startX);
+    const height = Math.abs(currentY - startY);
+
+    selectionBox.style.left = `${minX}px`;
+    selectionBox.style.top = `${minY}px`;
+    selectionBox.style.width = `${width}px`;
+    selectionBox.style.height = `${height}px`;
+}
+
+function endSelection(e) {
+    if (!selectionBox) return;
+
+    const draggables = tableContent.querySelectorAll('.draggable');
+    draggables.forEach(el => {
+        if (isIntersecting(selectionBox, el)) {
+            el.classList.add('selected');
+        }
+    });
+
+    // Cleanup
+    selectionBox.remove();
+    selectionBox = null;
+    isSelecting = false;
+}
+
+function clearSelection() {
+    const selected = tableContent.querySelectorAll('.selected');
+    selected.forEach(el => el.classList.remove('selected'));
+}
+
+function isIntersecting(el1, el2) {
+    const rect1 = el1.getBoundingClientRect();
+    const rect2 = el2.getBoundingClientRect();
+
+    return !(rect2.left > rect1.right ||
+        rect2.right < rect1.left ||
+        rect2.top > rect1.bottom ||
+        rect2.bottom < rect1.top);
+}
