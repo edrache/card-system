@@ -805,12 +805,21 @@ function renderActiveDeck() {
     const saveBtn = controls.querySelector('.save-deck-meta-btn');
     const deleteDeckBtn = controls.querySelector('.delete-deck-btn');
 
-    saveBtn.addEventListener('click', () => {
-        deck.name = nameInput.value;
+    // Auto-save color on change
+    colorInput.addEventListener('input', () => {
         deck.color = colorInput.value;
         StorageManager.saveDeck(deck);
         renderDeckList();
-        showToast('Deck updated');
+    });
+
+    saveBtn.addEventListener('click', () => {
+        deck.name = nameInput.value;
+        // deck.color = colorInput.value; // Already handled by input listener, but fine to keep or remove. 
+        // Let's keep it safe.
+        deck.color = colorInput.value;
+        StorageManager.saveDeck(deck);
+        renderDeckList();
+        showToast('Deck details updated');
     });
 
     deleteDeckBtn.addEventListener('click', () => {
