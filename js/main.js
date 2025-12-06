@@ -251,6 +251,15 @@ function drawCard(deck, deckEl) {
     const cardId = deck.cardIds.shift();
     updateDeckCount(deckEl, deck);
 
+    resolveCard(cardId, deckEl, deck.color, 0);
+}
+
+function resolveCard(cardId, deckEl, sourceColor, depth) {
+    if (depth > 10) {
+        alert('Max recursion depth reached! Possible infinite loop in special cards.');
+        return;
+    }
+
     // Handle Special Cards
     if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
         const parts = cardId.split(':');
@@ -266,65 +275,39 @@ function drawCard(deck, deckEl) {
                 const drawnCardId = targetDeckInstance.deck.cardIds.shift();
                 updateDeckCount(targetDeckInstance.element, targetDeckInstance.deck);
 
-                // Render the card at the SOURCE deck's position (as if drawn from it)
-                const allCards = StorageManager.getCards();
-                const realCardData = allCards.find(c => c.id === drawnCardId);
-
-                if (realCardData) {
-                    renderCardAtDeck(realCardData, deckEl, targetDeckInstance.deck.color);
-                }
+                // Recursively resolve the drawn card
+                // We pass the SIDE DECK'S color if we want the chain to reflect the source?
+                // Or keep the original deck's color?
+                // Usually "Random card from X" implies it looks like a card from X.
+                // So let's use targetDeckInstance.deck.color
+                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1);
             } else {
                 alert('Linked side deck is empty!');
             }
             return;
-        }
-
-        // Infinite Mode: Random copy
-        const targetDeck = StorageManager.getDecks().find(d => d.id === targetDeckId);
-
-        if (targetDeck && targetDeck.cardIds.length > 0) {
-            // Pick random card from target
-            const randomIndex = Math.floor(Math.random() * targetDeck.cardIds.length);
-            const randomCardId = targetDeck.cardIds[randomIndex];
-
-            // Resolve to actual card
-            // Note: If the random card is ALSO a special card, should we recurse?
-            // For now, let's assume one level of indirection or simple recursion.
-            // But 'cardId' here was shifted from the deck. The random one is just LOOKED UP, not removed from target (assumed copying/referencing).
-            // Wait, "random card from another deck" -> Does it REMOVE it from that deck?
-            // Usually in digital TCGs "create a random card" implies a copy. "Steal" implies remove.
-            // The requirement said "add a special card... which will be a random card from another deck".
-            // I'll assume COPY behavior (create instance) because modifying the source deck from here (Tabletop) might be unexpected if it's not on the table.
-
-            // We need to fetch the actual card data
-            const allCards = StorageManager.getCards();
-            let realCardData = allCards.find(c => c.id === randomCardId);
-
-            // If the random target is itself special, we might need to handle it.
-            // But simpler to just handle standard cards for now.
-            if (randomCardId.startsWith && randomCardId.startsWith('SPECIAL:')) {
-                // If we picked a special card, we might want to re-roll or just fail gracefully.
-                // Let's just alert for now to avoid infinite loops if target deck is all special cards pointing to each other.
-                alert('Randomly drew another special card! Recursion not supported yet.');
-                return;
-            }
-
-            if (realCardData) {
-                renderCardAtDeck(realCardData, deckEl, deck.color);
-            }
         } else {
-            alert('Target deck for random card is missing or empty! Drawing next card...');
-            // Draw next card immediately
-            drawCard(deck, deckEl);
+            // Infinite Mode: Random copy
+            const targetDeck = StorageManager.getDecks().find(d => d.id === targetDeckId);
+
+            if (targetDeck && targetDeck.cardIds.length > 0) {
+                // Pick random card from target
+                const randomIndex = Math.floor(Math.random() * targetDeck.cardIds.length);
+                const randomCardId = targetDeck.cardIds[randomIndex];
+
+                // Recursively resolve
+                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1);
+            } else {
+                alert('Target deck for random card is missing or empty!');
+            }
+            return;
         }
-        return;
     }
 
     const allCards = StorageManager.getCards();
     const cardData = allCards.find(c => c.id === cardId);
 
     if (cardData) {
-        renderCardAtDeck(cardData, deckEl, deck.color);
+        renderCardAtDeck(cardData, deckEl, sourceColor);
     }
 }
 
