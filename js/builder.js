@@ -45,6 +45,7 @@ const exportDecksBtn = document.getElementById('export-decks-btn');
 const importDecksBtn = document.getElementById('import-decks-btn');
 const importDecksFile = document.getElementById('import-decks-file');
 const deckList = document.getElementById('deck-list');
+const activeDeckView = document.getElementById('active-deck-view');
 
 // Modal Elements
 const modal = document.getElementById('card-preview-modal');
@@ -54,7 +55,7 @@ const toastContainer = document.getElementById('toast-container');
 
 // State
 let selectedCards = new Set();
-let expandedDeckIds = new Set();
+let selectedDeckId = null;
 
 // Initialization
 function init() {
@@ -576,152 +577,44 @@ setupHelp();
 
 function renderDeckList() {
     const decks = StorageManager.getDecks();
-    const allCards = StorageManager.getCards();
     deckList.innerHTML = '';
+
+    if (decks.length === 0) {
+        deckList.innerHTML = '<div style="color:var(--text-light); text-align:center; padding:10px;">No decks created</div>';
+        return;
+    }
 
     decks.forEach(deck => {
         const item = document.createElement('div');
-        item.className = 'deck-item';
+        item.className = `deck-item-simple ${selectedDeckId === deck.id ? 'active' : ''}`;
+        item.style.padding = '10px';
+        item.style.cursor = 'pointer';
+        item.style.marginBottom = '5px';
+        item.style.borderRadius = 'var(--radius-md)';
+        item.style.backgroundColor = selectedDeckId === deck.id ? 'rgba(0, 242, 255, 0.1)' : 'var(--card-bg)';
+        item.style.border = `1px solid ${selectedDeckId === deck.id ? 'var(--primary-color)' : 'var(--border-color)'}`;
 
-        // Header
-        const header = document.createElement('div');
-        header.className = 'deck-header';
-        header.innerHTML = `
-            <span>
+        item.innerHTML = `
+            <div style="display:flex; align-items:center;">
                 <span style="display:inline-block; width:12px; height:12px; background-color:${deck.color || '#34495e'}; margin-right:8px; border-radius:2px;"></span>
-                <strong>${deck.name}</strong> (${deck.cardIds.length} cards)
-            </span>
-            <span>▼</span>
+                <strong>${deck.name}</strong>
+            </div>
+            <div style="font-size:0.8em; color:var(--text-light); margin-top:2px; margin-left:20px;">
+                ${deck.cardIds.length} cards
+            </div>
         `;
 
-        // Content
-        const content = document.createElement('div');
-        content.className = 'deck-content';
-
-        // Edit Controls
-        const controls = document.createElement('div');
-        controls.className = 'deck-edit-controls';
-        controls.innerHTML = `
-            <input type="text" value="${deck.name}" class="edit-name" placeholder="Deck Name">
-            <input type="color" value="${deck.color || '#34495e'}" class="edit-color">
-            <button class="save-deck-meta-btn">Update Details</button>
-            <button class="delete-deck-btn danger-btn" style="margin-left:auto;">Delete Deck</button>
-        `;
-
-        // Special Card Controls
-        const specialControls = document.createElement('div');
-        specialControls.className = 'deck-edit-controls';
-        specialControls.style.borderTop = 'none';
-        specialControls.style.paddingTop = '0';
-
-        let deckOptions = '<option value="">Select Source Deck...</option>';
-        decks.forEach(d => {
-            deckOptions += `<option value="${d.id}">${d.name}</option>`;
-        });
-
-        specialControls.innerHTML = `
-            <span style="align-self:center; font-size:0.9em; white-space:nowrap;">Add Random Card:</span>
-            <select class="special-deck-select" style="flex:1;">${deckOptions}</select>
-            <label style="display:flex; align-items:center; gap:4px; font-size:0.8em; cursor:pointer;" title="If checked, draws from a shared, finite pile on the table.">
-                <input type="checkbox" class="finite-mode-checkbox"> Finite
-            </label>
-            <button class="add-special-btn">Add</button>
-        `;
-
-        // Card List
-        const cardList = document.createElement('div');
-        cardList.className = 'deck-card-list';
-
-        deck.cardIds.forEach((cardId, index) => {
-            let displayText = '';
-            let isSpecial = false;
-
-            if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
-                const targetDeckId = cardId.split(':')[2];
-                const isFinite = cardId.includes(':FINITE');
-                const targetDeck = decks.find(d => d.id === targetDeckId);
-                const targetName = targetDeck ? targetDeck.name : 'Unknown Deck';
-                displayText = `🎲 Random Card from [${targetName}]${isFinite ? ' (Finite)' : ''}`;
-                isSpecial = true;
-            } else {
-                const card = allCards.find(c => c.id === cardId);
-                if (!card) return;
-                displayText = `#${card.displayId} ${card.name}`;
-            }
-
-            const cardItem = document.createElement('div');
-            cardItem.className = 'deck-card-item';
-            if (isSpecial) cardItem.style.backgroundColor = 'rgba(0, 242, 255, 0.05)';
-
-            cardItem.innerHTML = `
-                <span>${displayText}</span>
-                <button class="remove-card-btn" data-index="${index}">Remove</button>
-            `;
-
-            cardItem.querySelector('.remove-card-btn').addEventListener('click', () => {
-                deck.cardIds.splice(index, 1);
-                StorageManager.saveDeck(deck);
-                renderDeckList(); // Re-render to update list
-            });
-
-            cardList.appendChild(cardItem);
-        });
-
-        content.appendChild(controls);
-        content.appendChild(specialControls);
-        content.appendChild(cardList);
-        item.appendChild(header);
-        item.appendChild(content);
-
-        if (expandedDeckIds.has(deck.id)) {
-            item.classList.add('expanded');
-        }
-
-        // Logic
-        header.addEventListener('click', () => {
-            item.classList.toggle('expanded');
-            if (item.classList.contains('expanded')) {
-                expandedDeckIds.add(deck.id);
-            } else {
-                expandedDeckIds.delete(deck.id);
-            }
-        });
-
-        const nameInput = controls.querySelector('.edit-name');
-        const colorInput = controls.querySelector('.edit-color');
-        const saveBtn = controls.querySelector('.save-deck-meta-btn');
-        const deleteDeckBtn = controls.querySelector('.delete-deck-btn');
-
-        saveBtn.addEventListener('click', () => {
-            deck.name = nameInput.value;
-            deck.color = colorInput.value;
-            StorageManager.saveDeck(deck);
-            renderDeckList();
-            showToast('Deck updated');
-        });
-
-        deleteDeckBtn.addEventListener('click', () => {
-            StorageManager.deleteDeck(deck.id);
-            renderDeckList();
-            showToast('Deck deleted');
-        });
-
-        const specialSelect = specialControls.querySelector('.special-deck-select');
-        const addSpecialBtn = specialControls.querySelector('.add-special-btn');
-
-        addSpecialBtn.addEventListener('click', () => {
-            const targetId = specialSelect.value;
-            const isFinite = specialControls.querySelector('.finite-mode-checkbox').checked;
-            if (!targetId) return showToast('Please select a source deck', true);
-
-            deck.addCard(`SPECIAL:RANDOM:${targetId}${isFinite ? ':FINITE' : ''}`);
-            StorageManager.saveDeck(deck);
-            renderDeckList();
-            showToast('Special card added');
+        item.addEventListener('click', () => {
+            selectedDeckId = deck.id;
+            renderDeckList(); // Re-render to update active state
+            renderActiveDeck();
         });
 
         deckList.appendChild(item);
     });
+
+    // Also update the active view
+    renderActiveDeck();
 }
 
 // --- Shared Logic ---
@@ -799,4 +692,149 @@ function hsvToHex(h, s, v) {
     };
 
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function renderActiveDeck() {
+    activeDeckView.innerHTML = '';
+
+    if (!selectedDeckId) {
+        activeDeckView.innerHTML = `
+            <div class="empty-state" style="display:flex; justify-content:center; align-items:center; height:100%; color:var(--text-light); flex-direction:column; gap:10px;">
+                <div style="font-size:3em; opacity:0.3;">🗃️</div>
+                <div>Select a deck to view and edit details</div>
+            </div>`;
+        return;
+    }
+
+    const decks = StorageManager.getDecks();
+    const deck = decks.find(d => d.id === selectedDeckId);
+
+    if (!deck) {
+        selectedDeckId = null;
+        renderDeckList();
+        return;
+    }
+
+    const allCards = StorageManager.getCards();
+
+    const container = document.createElement('div');
+    container.style.padding = '10px';
+
+    // Header / Controls
+    const controls = document.createElement('div');
+    controls.className = 'deck-edit-controls';
+    controls.innerHTML = `
+        <input type="text" value="${deck.name}" class="edit-name" placeholder="Deck Name">
+        <input type="color" value="${deck.color || '#34495e'}" class="edit-color">
+        <button class="save-deck-meta-btn">Update Details</button>
+        <button class="delete-deck-btn danger-btn" style="margin-left:auto;">Delete Deck</button>
+    `;
+
+    // Add Special Card section
+    const specialControls = document.createElement('div');
+    specialControls.className = 'deck-edit-controls';
+    specialControls.style.borderTop = 'none';
+    specialControls.style.paddingTop = '10px';
+
+    let deckOptions = '<option value="">Select Source Deck...</option>';
+    decks.forEach(d => {
+        deckOptions += `<option value="${d.id}">${d.name}</option>`;
+    });
+
+    specialControls.innerHTML = `
+        <span style="align-self:center; font-size:0.9em; white-space:nowrap;">Add Random Card:</span>
+        <select class="special-deck-select" style="flex:1;">${deckOptions}</select>
+        <label style="display:flex; align-items:center; gap:4px; font-size:0.8em; cursor:pointer;" title="If checked, draws from a shared, finite pile on the table.">
+            <input type="checkbox" class="finite-mode-checkbox"> Finite
+        </label>
+        <button class="add-special-btn">Add</button>
+    `;
+
+    // Valid Cards List
+    const cardList = document.createElement('div');
+    cardList.className = 'deck-card-list';
+    // Remove max-height since active view scrolls itself, but keep grid
+    cardList.style.maxHeight = 'none';
+    cardList.style.overflowY = 'visible';
+
+    deck.cardIds.forEach((cardId, index) => {
+        let displayText = '';
+        let isSpecial = false;
+
+        if (typeof cardId === 'string' && cardId.startsWith('SPECIAL:RANDOM:')) {
+            const targetDeckId = cardId.split(':')[2];
+            const isFinite = cardId.includes(':FINITE');
+            const targetDeck = decks.find(d => d.id === targetDeckId);
+            const targetName = targetDeck ? targetDeck.name : 'Unknown Deck';
+            displayText = `🎲 Random [${targetName}]${isFinite ? ' (Finite)' : ''}`;
+            isSpecial = true;
+        } else {
+            const card = allCards.find(c => c.id === cardId);
+            if (!card) return; // Skip if card missing
+            displayText = `#${card.displayId} ${card.name}`;
+        }
+
+        const cardItem = document.createElement('div');
+        cardItem.className = 'deck-card-item';
+        if (isSpecial) cardItem.style.backgroundColor = 'rgba(0, 242, 255, 0.05)';
+
+        cardItem.innerHTML = `
+            <span>${displayText}</span>
+            <button class="remove-card-btn" data-index="${index}">Remove</button>
+        `;
+
+        cardItem.querySelector('.remove-card-btn').addEventListener('click', () => {
+            deck.cardIds.splice(index, 1);
+            StorageManager.saveDeck(deck);
+            renderDeckList(); // Update sidebar count
+            renderActiveDeck(); // Update active view
+        });
+
+        cardList.appendChild(cardItem);
+    });
+
+    container.appendChild(controls);
+    container.appendChild(specialControls);
+    container.appendChild(document.createElement('br'));
+    container.appendChild(cardList);
+    activeDeckView.appendChild(container);
+
+    // Event Listeners for controls
+    const nameInput = controls.querySelector('.edit-name');
+    const colorInput = controls.querySelector('.edit-color');
+    const saveBtn = controls.querySelector('.save-deck-meta-btn');
+    const deleteDeckBtn = controls.querySelector('.delete-deck-btn');
+
+    saveBtn.addEventListener('click', () => {
+        deck.name = nameInput.value;
+        deck.color = colorInput.value;
+        StorageManager.saveDeck(deck);
+        renderDeckList();
+        showToast('Deck updated');
+    });
+
+    deleteDeckBtn.addEventListener('click', () => {
+        if (confirm('Delete this deck?')) {
+            StorageManager.deleteDeck(deck.id);
+            selectedDeckId = null;
+            renderDeckList();
+            renderActiveDeck(); // will show empty state
+            showToast('Deck deleted');
+        }
+    });
+
+    const specialSelect = specialControls.querySelector('.special-deck-select');
+    const addSpecialBtn = specialControls.querySelector('.add-special-btn');
+
+    addSpecialBtn.addEventListener('click', () => {
+        const targetId = specialSelect.value;
+        const isFinite = specialControls.querySelector('.finite-mode-checkbox').checked;
+        if (!targetId) return showToast('Please select a source deck', true);
+
+        deck.addCard(`SPECIAL:RANDOM:${targetId}${isFinite ? ':FINITE' : ''}`);
+        StorageManager.saveDeck(deck);
+        renderDeckList(); // update count
+        renderActiveDeck(); // update list
+        showToast('Special card added');
+    });
 }
