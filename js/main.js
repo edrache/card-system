@@ -135,21 +135,35 @@ function renderDeckOnTable(deck, x, y) {
     deckEl.innerHTML = `
         <div style="text-align: center;">
             <strong>${deck.name}</strong><br>
-            <span class="card-count">${deck.cardIds.length} cards</span>
-        </div>
-        <div class="deck-controls">
-            <button class="deck-btn draw-btn">Draw</button>
-            <button class="deck-btn shuffle-btn">Shuffle</button>
+            <span class="card-count" style="font-size: 0.8em; opacity: 0.8;">${deck.cardIds.length} cards</span>
         </div>
     `;
 
-    // Event Listeners for Controls
-    const drawBtn = deckEl.querySelector('.draw-btn');
-    const shuffleBtn = deckEl.querySelector('.shuffle-btn');
+    const deckControls = document.createElement('div');
+    deckControls.className = 'deck-controls';
+    // Use a cleaner layout: Two rows or compact flex
+    // Row 1: Draw | Shuffle
+    // Row 2: Face Down Toggle (centered or full width)
+    deckControls.innerHTML = `
+        <div class="deck-btn-group">
+            <button class="deck-btn draw-btn">Draw</button>
+            <button class="deck-btn shuffle-btn">Shuffle</button>
+        </div>
+        <label class="face-down-label" title="Draw cards face down">
+            <input type="checkbox" class="face-down-toggle">
+            <span class="face-down-text">Face Down</span>
+        </label>
+    `;
+
+    deckEl.appendChild(deckControls);
+
+    const drawBtn = deckControls.querySelector('.draw-btn');
+    const shuffleBtn = deckControls.querySelector('.shuffle-btn');
+    const faceDownToggle = deckControls.querySelector('.face-down-toggle');
 
     drawBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent drag start
-        drawCard(deck, deckEl);
+        drawCard(deck, deckEl, faceDownToggle.checked);
     });
 
     shuffleBtn.addEventListener('click', (e) => {
@@ -265,7 +279,7 @@ function updateConnections() {
     requestAnimationFrame(updateConnections);
 }
 
-function drawCard(deck, deckEl) {
+function drawCard(deck, deckEl, isFaceDown = false) {
     if (deck.cardIds.length === 0) {
         alert('Deck is empty!');
         return;
@@ -274,10 +288,10 @@ function drawCard(deck, deckEl) {
     const cardId = deck.cardIds.shift();
     updateDeckCount(deckEl, deck);
 
-    resolveCard(cardId, deckEl, deck.color, 0);
+    resolveCard(cardId, deckEl, deck.color, 0, isFaceDown, deck.name);
 }
 
-function resolveCard(cardId, deckEl, sourceColor, depth) {
+function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, sourceDeckName = 'Deck') {
     if (depth > 10) {
         alert('Max recursion depth reached! Possible infinite loop in special cards.');
         return;
@@ -299,11 +313,11 @@ function resolveCard(cardId, deckEl, sourceColor, depth) {
                 updateDeckCount(targetDeckInstance.element, targetDeckInstance.deck);
 
                 // Recursively resolve the drawn card
-                // We pass the SIDE DECK'S color if we want the chain to reflect the source?
-                // Or keep the original deck's color?
                 // Usually "Random card from X" implies it looks like a card from X.
                 // So let's use targetDeckInstance.deck.color
-                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1);
+                // If the random card is drawn, adhere to the face-down setting passed? 
+                // Yes, inherit isFaceDown
+                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1, isFaceDown, targetDeckInstance.deck.name);
             } else {
                 alert('Linked side deck is empty!');
             }
@@ -318,7 +332,7 @@ function resolveCard(cardId, deckEl, sourceColor, depth) {
                 const randomCardId = targetDeck.cardIds[randomIndex];
 
                 // Recursively resolve
-                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1);
+                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1, isFaceDown, targetDeck.name);
             } else {
                 alert('Target deck for random card is missing or empty!');
             }
@@ -330,11 +344,11 @@ function resolveCard(cardId, deckEl, sourceColor, depth) {
     const cardData = allCards.find(c => c.id === cardId);
 
     if (cardData) {
-        renderCardAtDeck(cardData, deckEl, sourceColor);
+        renderCardAtDeck(cardData, deckEl, sourceColor, isFaceDown, sourceDeckName);
     }
 }
 
-function renderCardAtDeck(cardData, deckEl, color) {
+function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, deckName = 'Deck') {
     const rect = deckEl.getBoundingClientRect();
     // We need to account for scale when positioning
     // The rect is screen coordinates, but we append to tableContent which is scaled.
@@ -347,7 +361,7 @@ function renderCardAtDeck(cardData, deckEl, color) {
     const x = deckX + 160;
     const y = deckY;
 
-    renderCardOnTable(cardData, x, y, color);
+    renderCardOnTable(cardData, x, y, color, isFaceDown, deckName);
 }
 
 function updateDeckCount(deckEl, deck) {
@@ -357,13 +371,16 @@ function updateDeckCount(deckEl, deck) {
     }
 }
 
-function renderCardOnTable(card, x, y, color = null) {
+function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckName = 'Card') {
     const cardEl = document.createElement('div');
-    cardEl.className = 'card draggable';
+    cardEl.className = `card draggable${isFaceDown ? ' face-down' : ''}`;
     cardEl.dataset.id = card.id;
     if (color) {
         cardEl.dataset.color = color;
     }
+    // Store deck name if face down needed later
+    cardEl.dataset.deckName = deckName;
+
     cardEl.style.left = `${x}px`;
     cardEl.style.top = `${y}px`;
     cardEl.style.zIndex = DragManager.getNextZIndex();
@@ -384,13 +401,24 @@ function renderCardOnTable(card, x, y, color = null) {
     const attachments = Array.from(resolutionContext.values()).map(v => v.card);
 
     cardEl.innerHTML = `
+        <button class="flip-btn" title="Flip Card"></button>
         <div class="card-header" ${headerStyle}>${card.name}</div>
         <div class="card-body">${finalMechText}</div>
         ${finalFlavorText ? `<div class="card-flavor">${finalFlavorText}</div>` : ''}
         <div class="card-tags">${card.tags.join(', ')}</div>
         <button class="create-deck-btn" title="Create Deck from Stack"></button>
         <div class="card-attachments"></div>
+        <div class="card-back-content">
+            <div style="font-weight:bold; color:white; background:${color || '#555'}; padding:8px; border-radius:4px; box-shadow:0 0 5px rgba(0,0,0,0.5);">${deckName}</div>
+        </div>
     `;
+
+    // Add Flip Listener
+    const flipBtn = cardEl.querySelector('.flip-btn');
+    flipBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        flipCard(cardEl);
+    });
 
     // Render attachments
     const attachmentContainer = cardEl.querySelector('.card-attachments');
@@ -727,5 +755,14 @@ function setupHelp() {
 }
 
 setupHelp();
+
+function flipCard(cardEl) {
+    cardEl.classList.add('is-flipping');
+
+    setTimeout(() => {
+        cardEl.classList.toggle('face-down');
+        cardEl.classList.remove('is-flipping');
+    }, 100); // Wait half of transition
+}
 
 init();
