@@ -123,9 +123,14 @@ function handleAddDeck() {
     renderDeckOnTable(deckInstance, x, y);
 }
 
-function renderDeckOnTable(deck, x, y) {
+function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = false) {
     const deckEl = document.createElement('div');
     deckEl.className = 'deck draggable';
+    if (isSideDeck) {
+        deckEl.classList.add('side-deck');
+        deckEl.style.transform = 'scale(0.8)';
+        deckEl.style.border = '2px dashed #fff';
+    }
     deckEl.style.left = `${x}px`;
     deckEl.style.top = `${y}px`;
     deckEl.style.zIndex = DragManager.getNextZIndex();
@@ -159,7 +164,7 @@ function renderDeckOnTable(deck, x, y) {
             <button class="deck-btn shuffle-btn">Shuffle</button>
         </div>
         <label class="face-down-label" title="Draw cards face down">
-            <input type="checkbox" class="face-down-toggle">
+            <input type="checkbox" class="face-down-toggle" ${isFaceDownDefault ? 'checked' : ''}>
             <span class="face-down-text">Face Down</span>
         </label>
     `;
@@ -237,10 +242,14 @@ function spawnSideDecksIfNeeded(sourceDeck, sourceDeckEl) {
                     // Find the element we just added
                     targetDeckInstance = activeDecks[activeDecks.length - 1];
 
-                    // Style it as "Side Deck"
-                    targetDeckInstance.element.classList.add('side-deck');
-                    targetDeckInstance.element.style.transform = 'scale(0.8)';
-                    targetDeckInstance.element.style.border = '2px dashed #fff';
+                    // Style directly applied in renderDeckOnTable via isSideDeck param
+                    // but we used to do it manually here. Now we can rely on proper rendering if we updated usage.
+                    // But here we're spawning a fresh instance.
+                    // Let's call renderDeckOnTable with isSideDeck=true
+                    renderDeckOnTable(newDeckInstance, targetX, targetY, false, true);
+
+                    // Find the element we just added
+                    targetDeckInstance = activeDecks[activeDecks.length - 1];
                 }
             }
 
@@ -626,35 +635,41 @@ function handleExportTable() {
     // Decks on table
     activeDecks.forEach(item => {
         const rect = item.element.getBoundingClientRect();
-        // Calculate relative position to table content (considering zoom/pan if any, but for now simple)
-        // Actually, we stored them with left/top style.
+        const faceDownToggle = item.element.querySelector('.face-down-toggle');
+        const isFaceDownDefault = faceDownToggle ? faceDownToggle.checked : false;
+        const isSideDeck = item.element.classList.contains('side-deck');
+
         tableState.decks.push({
             x: parseFloat(item.element.style.left),
             y: parseFloat(item.element.style.top),
             deckId: item.deck.id, // Original Deck ID
             remainingCardIds: [...item.deck.cardIds], // Current state of deck
             color: item.deck.color,
-            name: item.deck.name
+            name: item.deck.name,
+            variableName: item.deck.variableName, // Missing field
+            isFaceDownDefault, // Missing field
+            isSideDeck // Missing field
         });
     });
 
     // Cards on table (loose cards)
     const cards = document.querySelectorAll('.card.draggable');
     cards.forEach(cardEl => {
-        // We need to associate the element with the card data. 
-        // Currently we don't store the card object on the element.
-        // We should probably attach it or parse it. 
-        // Parsing is risky. Let's attach data-id to the element when rendering.
-        // Wait, we didn't add data-id to renderCardOnTable. We need to fix that first.
-        // Assuming we fix renderCardOnTable to add data-id:
         const id = cardEl.dataset.id;
         const color = cardEl.dataset.color;
+        const isFaceDown = cardEl.classList.contains('face-down');
+        const deckName = cardEl.dataset.deckName;
+        const zIndex = cardEl.style.zIndex;
+
         if (id) {
             tableState.cards.push({
                 x: parseFloat(cardEl.style.left),
                 y: parseFloat(cardEl.style.top),
                 cardId: id,
-                color: color
+                color: color,
+                isFaceDown, // Missing field
+                deckName, // Missing field
+                zIndex // Missing field
             });
         }
     });
@@ -697,8 +712,8 @@ async function handleImportTable(e) {
                 // We reconstruct the deck instance
                 // We can use the definition from storage or the state data
                 // State data has the *current* cards, which is what we want for the table instance
-                const deck = new Deck(dState.deckId, dState.name, dState.remainingCardIds, dState.color);
-                renderDeckOnTable(deck, dState.x, dState.y);
+                const deck = new Deck(dState.deckId, dState.name, dState.remainingCardIds, dState.color, dState.variableName);
+                renderDeckOnTable(deck, dState.x, dState.y, dState.isFaceDownDefault, dState.isSideDeck);
             });
 
             // Restore Cards
@@ -706,7 +721,13 @@ async function handleImportTable(e) {
             data.tableState.cards.forEach(cState => {
                 const card = allCards.find(c => c.id === cState.cardId);
                 if (card) {
-                    renderCardOnTable(card, cState.x, cState.y, cState.color);
+                    renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.deckName);
+                    // Force zIndex
+                    const cardsOnTable = document.querySelectorAll('.card.draggable');
+                    const restoredCard = cardsOnTable[cardsOnTable.length - 1];
+                    if (restoredCard && cState.zIndex) {
+                        restoredCard.style.zIndex = cState.zIndex;
+                    }
                 }
             });
         }
