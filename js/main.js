@@ -55,7 +55,7 @@ function setupEventListeners() {
     table.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY * -0.001;
-        const newScale = Math.min(Math.max(0.5, scale + delta), 2); // Limit zoom 0.5x to 2x
+        const newScale = Math.min(Math.max(0.2, scale + delta), 3); // Limit zoom 0.2x to 3x
 
         scale = newScale;
         tableContent.style.transform = `scale(${scale})`;
@@ -381,10 +381,34 @@ function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, deckName 
     const deckX = parseFloat(deckEl.style.left);
     const deckY = parseFloat(deckEl.style.top);
 
-    const x = deckX + 160;
-    const y = deckY;
+    // Draw to the RIGHT (Positive X)
+    // Random Offset parameters
+    const range = 150; // Max distance
+    const min = 50;   // Min distance
 
-    renderCardOnTable(cardData, x, y, color, isFaceDown, deckName);
+    // Always positive X (Right side)
+    const offsetX = min + Math.random() * (range - min);
+    // Y can be up or down
+    const offsetY = (Math.random() < 0.5 ? -1 : 1) * (Math.random() * range / 2); // Reduced Y range for better "row" feel
+
+    let targetX = deckX + offsetX;
+    let targetY = deckY + offsetY;
+
+    // Snap target to Grid (15px)
+    const snap = 15;
+    targetX = Math.round(targetX / snap) * snap;
+    targetY = Math.round(targetY / snap) * snap;
+
+    // Initial Render at DECK position (for animation start)
+    // We pass deckX, deckY as initial position to renderCardOnTable
+    const cardEl = renderCardOnTable(cardData, deckX, deckY, color, isFaceDown, deckName);
+
+    // Animate to Target
+    // We need a slight delay to allow browser to render initial position
+    setTimeout(() => {
+        cardEl.style.left = `${targetX}px`;
+        cardEl.style.top = `${targetY}px`;
+    }, 50);
 }
 
 function updateDeckCount(deckEl, deck) {
@@ -488,7 +512,6 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
             attachmentContainer.appendChild(attEl);
         });
     }
-
     // Add Create Deck listener
     const createDeckBtn = cardEl.querySelector('.create-deck-btn');
     createDeckBtn.addEventListener('click', (e) => {
@@ -497,6 +520,8 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
     });
 
     tableContent.appendChild(cardEl);
+
+    return cardEl;
 }
 
 function processVariables(text, context, depth = 0) {
@@ -582,6 +607,9 @@ function handleCreateDeck(topCardEl, topCardData) {
     // Remove card elements from table
     stackCards.forEach(el => el.remove());
 
+    // Render new Deck at position of the CLICKED card (the "head" of the stack)
+    const x = parseFloat(topCardEl.style.left);
+    const y = parseFloat(topCardEl.style.top);
 
     // Snap it? Dragging likely snapped it already, but good to ensure.
     const snap = 15;

@@ -162,10 +162,21 @@ main {
     flex: 1;
     background-color: var(--table-color);
     position: relative;
-    overflow: hidden;
+    overflow: auto;
+    /* Allow scrolling */
     width: 100%;
     height: 100%;
     box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+
+    /* Background moved to #table-content */
+}
+
+#table-content {
+    width: 3000px;
+    /* Larger workspace */
+    height: 3000px;
+    transform-origin: 0 0;
+    transition: transform 0.1s ease-out;
 
     /* Tech Graph Paper Pattern */
     background-image:
@@ -175,14 +186,6 @@ main {
         linear-gradient(90deg, rgba(0, 242, 255, 0.1) 1px, transparent 1px);
     background-size: 15px 15px, 15px 15px, 150px 150px, 150px 150px;
     background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
-    /* Align lines */
-}
-
-#table-content {
-    width: 100%;
-    height: 100%;
-    transform-origin: 0 0;
-    transition: transform 0.1s ease-out;
 }
 
 #controls {
@@ -537,9 +540,9 @@ button:active {
     position: absolute;
     /* For tabletop */
     cursor: grab;
-    transition: transform 0.1s, box-shadow 0.1s;
+    transition: transform 0.1s, box-shadow 0.1s, left 0.3s ease-out, top 0.3s ease-out;
     /* Faster, specific transitions */
-    will-change: transform;
+    will-change: transform, left, top;
     /* Hint to browser */
 }
 
