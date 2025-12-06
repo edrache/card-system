@@ -540,6 +540,14 @@ function getHelpContent(viewName) {
                 <ul>
                     <li>When editing a card, you can <strong>Overwrite</strong> it or <strong>Save as New</strong>.</li>
                 </ul>
+                <h3>Variable Substitution</h3>
+                <ul>
+                    <li>Use <strong>{VARIABLE}</strong> in text to draw from a <strong>referenced deck</strong> with that variable name.</li>
+                    <li>Example: "You find a {ITEM}." draws from a deck where Variable Name is "ITEM".</li>
+                    <li>Use indices like <strong>{ITEM:1}</strong> and <strong>{ITEM:2}</strong> to draw different cards.</li>
+                    <li><em>Note: The referenced deck must be on the table for this to work.</em></li>
+                    <li><strong>Clickable:</strong> In the game, players can click the highlighted variable name to spawn the actual card.</li>
+                </ul>
             `;
         case 'Library':
             return `
@@ -562,9 +570,10 @@ function getHelpContent(viewName) {
                 <h3>Deck Management</h3>
                 <ul>
                     <li><strong>Create Deck:</strong> Enter a name and click create.</li>
-                    <li><strong>Edit Deck:</strong> Expand a deck to change its name or <strong>Color</strong>.</li>
+                    <li><strong>Edit Deck:</strong> Expand a deck to change its name, <strong>Color</strong>, or <strong>Variable Name</strong>.</li>
                     <li><strong>Manage Cards:</strong> Remove individual cards from the list.</li>
                     <li><strong>Special Cards:</strong> Add a "Random Card" that pulls from another deck. Check "Finite" to make it draw from a shared, depletable pile.</li>
+                    <li><strong>Variable Substitution:</strong> refer to decks by handle (e.g. {ITEM}) in card text to auto-draw cards. Use {ITEM:1}, {ITEM:2} for unique draws.</li>
                     <li><strong>Export/Import:</strong> Backup or restore your decks.</li>
                 </ul>
             `;
@@ -726,6 +735,7 @@ function renderActiveDeck() {
     controls.innerHTML = `
         <input type="text" value="${deck.name}" class="edit-name" placeholder="Deck Name">
         <input type="color" value="${deck.color || '#34495e'}" class="edit-color">
+        <input type="text" value="${deck.variableName || ''}" class="edit-variable" placeholder="Variable (e.g. ITEM)" title="Variable name for text substitution (e.g. {ITEM})">
         <button class="save-deck-meta-btn">Update Details</button>
         <button class="delete-deck-btn danger-btn" style="margin-left:auto;">Delete Deck</button>
     `;
@@ -812,22 +822,27 @@ function renderActiveDeck() {
         renderDeckList();
     });
 
-    saveBtn.addEventListener('click', () => {
-        deck.name = nameInput.value;
-        // deck.color = colorInput.value; // Already handled by input listener, but fine to keep or remove. 
-        // Let's keep it safe.
-        deck.color = colorInput.value;
-        StorageManager.saveDeck(deck);
-        renderDeckList();
-        showToast('Deck details updated');
+    controls.querySelector('.save-deck-meta-btn').addEventListener('click', () => {
+        const newName = controls.querySelector('.edit-name').value;
+        const newColor = controls.querySelector('.edit-color').value;
+        const newVar = controls.querySelector('.edit-variable').value.trim();
+
+        if (newName) {
+            deck.name = newName;
+            deck.color = newColor;
+            deck.variableName = newVar || null; // Save or null
+            StorageManager.saveDeck(deck);
+            renderDeckList();
+            showToast('Deck details updated');
+        }
     });
 
-    deleteDeckBtn.addEventListener('click', () => {
-        if (confirm('Delete this deck?')) {
+    controls.querySelector('.delete-deck-btn').addEventListener('click', () => {
+        if (confirm(`Delete deck "${deck.name}"?`)) {
             StorageManager.deleteDeck(deck.id);
             selectedDeckId = null;
             renderDeckList();
-            renderActiveDeck(); // will show empty state
+            renderActiveDeck();
             showToast('Deck deleted');
         }
     });

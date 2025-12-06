@@ -68,6 +68,29 @@ function setupEventListeners() {
 
     // Card Drop on Deck
     tableContent.addEventListener('card-dropped-on-deck', handleCardDroppedOnDeck);
+
+    // Interactive References (Text Links & Mini Cards)
+    tableContent.addEventListener('click', (e) => {
+        const target = e.target.closest('.ref-link');
+        if (target) {
+            e.stopPropagation();
+            const cardId = target.dataset.cardId;
+            if (cardId) {
+                const allCards = StorageManager.getCards();
+                const card = allCards.find(c => c.id === cardId);
+                if (card) {
+                    // Spawn near the click
+                    // Account for scale
+                    const rect = tableContent.getBoundingClientRect(); // Container rect
+                    const clickX = (e.clientX - rect.left) / scale;
+                    const clickY = (e.clientY - rect.top) / scale;
+
+                    // Offset slightly so it doesn't appear exactly under cursor (though dragging handles that)
+                    renderCardOnTable(card, clickX + 20, clickY + 20);
+                }
+            }
+        }
+    });
 }
 
 function renderDeckSelect() {
@@ -347,13 +370,73 @@ function renderCardOnTable(card, x, y, color = null) {
 
     const headerStyle = color ? `style="background-color: ${color}; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);"` : '';
 
+    // Context for variable resolution (shared across mech and flavor text for consistency)
+    const resolutionContext = new Map();
+
+    // Process Text for Variables
+    const mechResult = processVariables(card.mechanicalText, resolutionContext);
+    const flavorResult = processVariables(card.flavorText || '', resolutionContext);
+
+    const finalMechText = mechResult.text;
+    const finalFlavorText = flavorResult.text;
+
+    // Collect all unique attachments from context to avoid duplicates if referenced multiple times
+    const attachments = Array.from(resolutionContext.values()).map(v => v.card);
+
     cardEl.innerHTML = `
         <div class="card-header" ${headerStyle}>${card.name}</div>
-        <div class="card-body">${card.mechanicalText}</div>
-        ${card.flavorText ? `<div class="card-flavor">${card.flavorText}</div>` : ''}
+        <div class="card-body">${finalMechText}</div>
+        ${finalFlavorText ? `<div class="card-flavor">${finalFlavorText}</div>` : ''}
         <div class="card-tags">${card.tags.join(', ')}</div>
         <button class="create-deck-btn" title="Create Deck from Stack"></button>
+        <div class="card-attachments"></div>
     `;
+
+    // Render attachments
+    const attachmentContainer = cardEl.querySelector('.card-attachments');
+    if (attachments.length > 0) {
+        // Side positioning
+        attachmentContainer.style.position = 'absolute';
+        attachmentContainer.style.left = '100%';
+        attachmentContainer.style.top = '0';
+        attachmentContainer.style.display = 'flex';
+        attachmentContainer.style.flexDirection = 'column'; // Stack vertically on the right
+        attachmentContainer.style.gap = '5px';
+        attachmentContainer.style.paddingLeft = '10px'; // Spacing from parent
+        attachmentContainer.style.pointerEvents = 'auto';
+
+        // Connector line style (visual only)
+        // We can add a pseudo element or SVG later, for now just spacing
+
+        attachments.forEach(attCard => {
+            const attEl = document.createElement('div');
+            attEl.className = 'mini-card ref-link'; // Add ref-link class
+            attEl.dataset.cardId = attCard.id; // Add ID
+            attEl.style.border = '1px solid #7f8c8d';
+            attEl.style.borderRadius = '4px';
+            attEl.style.padding = '4px';
+            attEl.style.backgroundColor = 'var(--card-bg)';
+            attEl.style.fontSize = '0.7em';
+            attEl.style.width = '80px';
+            attEl.style.boxShadow = '2px 2px 4px rgba(0,0,0,0.3)';
+            attEl.style.position = 'relative';
+            attEl.style.cursor = 'pointer'; // Show pointer
+            attEl.title = 'Click to spawn card';
+
+            // Visual connector to parent
+            const connector = document.createElement('div');
+            connector.style.position = 'absolute';
+            connector.style.top = '10px';
+            connector.style.left = '-10px';
+            connector.style.width = '10px';
+            connector.style.height = '1px';
+            connector.style.backgroundColor = '#ccc';
+            attEl.appendChild(connector);
+
+            attEl.innerHTML += `<strong>${attCard.name}</strong><br><span style="font-size:0.9em">${attCard.mechanicalText}</span>`;
+            attachmentContainer.appendChild(attEl);
+        });
+    }
 
     // Add Create Deck listener
     const createDeckBtn = cardEl.querySelector('.create-deck-btn');
@@ -363,6 +446,45 @@ function renderCardOnTable(card, x, y, color = null) {
     });
 
     tableContent.appendChild(cardEl);
+}
+
+function processVariables(text, context, depth = 0) {
+    if (!text) return { text: '', attachments: [] };
+    if (depth > 5) return { text, attachments: [] }; // Prevent infinite recursion
+
+    // Regex to match {NAME} or {NAME:INDEX}
+    // Captures: 1=Name, 2=Index (optional)
+    const processedText = text.replace(/{([A-Z0-9_]+)(?::(\d+))?}/g, (match, variableName, index) => {
+        const varKey = `${variableName}:${index || 0}`;
+
+        // Check context first
+        if (context.has(varKey)) {
+            const card = context.get(varKey).card;
+            return `<span class="ref-link" data-card-id="${card.id}" style="text-decoration:underline; font-weight:bold; color:#f1c40f; cursor:pointer;" title="Click to spawn ${card.name}">${card.name}</span>`;
+        }
+
+        // Find deck with this variable name
+        const deckInstance = activeDecks.find(d => d.deck.variableName === variableName);
+
+        if (deckInstance && deckInstance.deck.cardIds.length > 0) {
+            // Draw card
+            const cardId = deckInstance.deck.cardIds.shift();
+            updateDeckCount(deckInstance.element, deckInstance.deck); // Update UI for the source deck
+
+            const allCards = StorageManager.getCards();
+            const card = allCards.find(c => c.id === cardId);
+
+            if (card) {
+                // Store in context
+                context.set(varKey, { card });
+
+                return `<span class="ref-link" data-card-id="${card.id}" style="text-decoration:underline; font-weight:bold; color:#f1c40f; cursor:pointer;" title="Click to spawn ${card.name}">${card.name}</span>`;
+            }
+        }
+        return match; // Return original if no match or empty
+    });
+
+    return { text: processedText };
 }
 
 function handleCreateDeck(topCardEl, topCardData) {
@@ -580,12 +702,14 @@ function setupHelp() {
                 <li><strong>Draw:</strong> Click "Draw" on a deck to reveal a card.</li>
                 <li><strong>Shuffle:</strong> Click "Shuffle" to randomize a deck.</li>
                 <li><strong>Random Cards:</strong> Some decks may contain special cards that pull a random card from another deck. If "Finite", they draw from a visible side deck until it's empty.</li>
+                <li><strong>Variable Substitution:</strong> Cards with placeholders (e.g., {ITEM}) draw from other decks automatically. <strong>Note: The referenced deck must be present on the table!</strong></li>
             </ul>
             <h3>Interactions</h3>
             <ul>
                 <li><strong>Stacking:</strong> Drag a card over another to stack them.</li>
                 <li><strong>Moving Stacks:</strong> Drag the bottom card to move the stack.</li>
                 <li><strong>Separating:</strong> Drag the top card to separate it.</li>
+                <li><strong>Spawn from Reference:</strong> Click on valid referenced text (e.g. {ITEM}) or attached mini-cards to spawn a copy of that card on the table.</li>
             </ul>
             <h3>Data</h3>
             <ul>

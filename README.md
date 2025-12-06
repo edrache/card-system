@@ -25,6 +25,13 @@ A web-based tabletop card system that allows you to create cards and play with t
     -   **Infinite Mode (Default):** Draws a random copy from the source deck definition. The source deck is not affected.
     -   **Finite Mode:** Spawns a physical side deck on the table. Cards are drawn from this specific instance and can run out.
 
+- **Variable Substitution:**
+    -   Assign a **Variable Name** (e.g., `ITEM`) to a deck in the Deck Builder.
+    -   Use placeholders like `{ITEM}` in card text. When the card is drawn, a card from the `ITEM` deck is drawn and substituted into the text.
+    -   **Indexing:** Use `{ITEM:1}`, `{ITEM:2}` to draw multiple distinct cards. Using `{ITEM}` or `{ITEM:1}` multiple times refers to the same drawn card.
+    -   drawn cards appear attached to the right side of the main card.
+    -   **Interactivity:** Click on the underlined variable text or the attached mini-card to spawn a full copy of the referenced card on the table.
+
 ### 2. Tabletop Interface
 -   **Drag & Drop**: Freely move cards and decks around the table.
 -   **Smart Stacking**:
