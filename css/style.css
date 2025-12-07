@@ -642,52 +642,83 @@ button:active {
     box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
 }
 
-.star-btn {
+.card.horizontal {
+    width: 210px;
+    height: 150px;
+}
+
+.card.square {
+    width: 170px;
+    height: 170px;
+}
+
+.card-action-btn {
     position: absolute;
-    top: 5px;
-    right: 32px;
-    /* Left of the create-deck-btn if necessary, or check positioning */
-    width: 20px;
-    height: 20px;
-    background: transparent;
-    border: none;
+    top: -8px;
+    width: 24px;
+    height: 24px;
+    background: var(--background-color);
+    /* Contrast against card bg */
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1;
-    color: #555;
+    color: var(--text-light);
     z-index: 20;
-    transition: transform 0.2s, color 0.2s;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.star-btn:hover {
-    transform: scale(1.2);
-    color: var(--warning-color);
+.card-action-btn:hover {
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: var(--background-color);
+}
+
+.format-btn {
+    left: 65px;
+    /* 5px (flip) + 24 + 6 + 24 + 6 */
+    right: auto;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.card:hover .format-btn {
+    opacity: 1;
+}
+
+.format-btn::before {
+    content: '⬒';
+}
+
+.star-btn {
+    left: 35px;
+    /* 5px + 24 + 6 */
+    right: auto;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.card:hover .star-btn {
+    opacity: 1;
 }
 
 .star-btn.active {
+    opacity: 1;
     color: var(--warning-color);
+    border-color: var(--warning-color);
     text-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
 }
 
 .flip-btn {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 20px;
-    height: 20px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    color: #555;
-    z-index: 20;
-    transition: transform 0.2s;
-    /* Icon handled via ::before or innerHTML in JS */
+    left: 5px;
+    right: auto;
 }
 
 .flip-btn::before {
@@ -799,6 +830,25 @@ button:active {
     color: var(--text-color);
     box-shadow: var(--shadow-sm);
     /* Flat shadow */
+}
+
+.deck.horizontal {
+    width: 210px;
+    height: 150px;
+}
+
+.deck.square {
+    width: 170px;
+    height: 170px;
+}
+
+.deck:hover .format-btn {
+    opacity: 1;
+}
+
+.deck .format-btn {
+    left: 5px;
+    /* Decks don't have flip/star buttons, so put it in the corner */
 }
 
 .deck.drag-over {

@@ -57,7 +57,9 @@ function captureFullState() {
             y: parseFloat(wrapper.element ? wrapper.element.style.top : 0),
             variableName: wrapper.deck.variableName,
             isFaceDownDefault: wrapper.element ? wrapper.element.dataset.isFaceDownDefault === 'true' : false,
-            isSideDeck: wrapper.element ? wrapper.element.classList.contains('side-deck') : false
+            isFaceDownDefault: wrapper.element ? wrapper.element.dataset.isFaceDownDefault === 'true' : false,
+            isSideDeck: wrapper.element ? wrapper.element.classList.contains('side-deck') : false,
+            format: wrapper.deck.format || 'vertical'
         })),
         cards: Array.from(document.querySelectorAll('.card.draggable')).map(c => ({
             cardId: c.dataset.id,
@@ -67,6 +69,7 @@ function captureFullState() {
             color: c.dataset.color || c.style.backgroundColor, // Prefer dataset if available from previous logic
             isFaceDown: c.classList.contains('face-down'),
             isStarred: c.classList.contains('starred'),
+            format: c.dataset.format || 'vertical',
             deckName: c.dataset.deckName || c.querySelector('.card-header')?.innerText,
             resolvedVariables: c.dataset.resolvedVariables ? JSON.parse(c.dataset.resolvedVariables) : null
         })),
@@ -111,6 +114,8 @@ function loadTableState() {
     if (data.tableState.decks) {
         data.tableState.decks.forEach(dState => {
             const deck = new Deck(dState.deckId, dState.name, dState.remainingCardIds, dState.color, dState.variableName);
+            // Restore format
+            if (dState.format) deck.format = dState.format;
             // Re-render
             renderDeckOnTable(deck, dState.x, dState.y, dState.isFaceDownDefault, dState.isSideDeck);
         });
@@ -137,7 +142,7 @@ function loadTableState() {
         data.tableState.cards.forEach(cState => {
             const card = allCards.find(c => c.id === cState.cardId);
             if (card) {
-                renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.isStarred, cState.deckName, cState.resolvedVariables);
+                renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.isStarred, cState.deckName, cState.resolvedVariables, cState.format);
                 // Fix Z
                 const cardsOnTable = document.querySelectorAll('.card.draggable');
                 const restoredCard = cardsOnTable[cardsOnTable.length - 1];
@@ -469,6 +474,9 @@ function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = f
     if (deck.color) {
         deckEl.style.backgroundColor = deck.color;
     }
+    if (deck.format) {
+        deckEl.classList.add(deck.format);
+    }
     deckEl.innerHTML = `
         <div style="text-align: center; width:100%; padding:0 10px; box-sizing:border-box;">
             <input type="text" value="${deck.name}" class="deck-name-input" title="Rename deck on table">
@@ -488,6 +496,21 @@ function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = f
 
     const deckControls = document.createElement('div');
     deckControls.className = 'deck-controls';
+
+    // Format Toggle
+    // Format Toggle
+    const formatBtn = document.createElement('button');
+    formatBtn.className = 'card-action-btn format-btn';
+    formatBtn.title = 'Switch Format (Vertical/Horizontal/Square)';
+    // Styles handled by CSS class .card-action-btn and .format-btn (with override for deck)
+    formatBtn.innerHTML = '⬒';
+    formatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cycleFormat(deckEl, deck);
+        autoSave();
+    });
+    deckEl.appendChild(formatBtn);
+
     // Use a cleaner layout: Two rows or compact flex
     // Row 1: Draw | Shuffle
     // Row 2: Face Down Toggle (centered or full width)
@@ -640,10 +663,10 @@ function drawCard(deck, deckEl, isFaceDown = false) {
     const cardId = deck.cardIds.shift();
     updateDeckCount(deckEl, deck);
 
-    resolveCard(cardId, deckEl, deck.color, 0, isFaceDown, false, deck.name);
+    resolveCard(cardId, deckEl, deck.color, 0, isFaceDown, false, deck.name, deck.format);
 }
 
-function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, isStarred = false, sourceDeckName = 'Deck') {
+function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, isStarred = false, sourceDeckName = 'Deck', sourceFormat = 'vertical') {
     if (depth > 10) {
         alert('Max recursion depth reached! Possible infinite loop in special cards.');
         return;
@@ -675,7 +698,8 @@ function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, isS
                 // So let's use targetDeckInstance.deck.color
                 // If the random card is drawn, adhere to the face-down setting passed? 
                 // Yes, inherit isFaceDown
-                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1, isFaceDown, isStarred, targetDeckInstance.deck.name);
+                // Inherit format from source side-deck
+                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1, isFaceDown, isStarred, targetDeckInstance.deck.name, targetDeckInstance.deck.format);
             } else {
                 alert('Linked side deck is empty!');
             }
@@ -690,7 +714,8 @@ function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, isS
                 const randomCardId = targetDeck.cardIds[randomIndex];
 
                 // Recursively resolve
-                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1, isFaceDown, isStarred, targetDeck.name);
+                // Inherit from target deck
+                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1, isFaceDown, isStarred, targetDeck.name, targetDeck.format);
             } else {
                 alert('Target deck for random card is missing or empty!');
             }
@@ -702,11 +727,11 @@ function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, isS
     const cardData = allCards.find(c => c.id === cardId);
 
     if (cardData) {
-        renderCardAtDeck(cardData, deckEl, sourceColor, isFaceDown, isStarred, sourceDeckName);
+        renderCardAtDeck(cardData, deckEl, sourceColor, isFaceDown, isStarred, sourceDeckName, sourceFormat);
     }
 }
 
-function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, isStarred = false, deckName = 'Deck') {
+function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, isStarred = false, deckName = 'Deck', format = 'vertical') {
     const rect = deckEl.getBoundingClientRect();
     // We need to account for scale when positioning
     // The rect is screen coordinates, but we append to tableContent which is scaled.
@@ -736,7 +761,7 @@ function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, isStarred
 
     // Initial Render at DECK position (for animation start)
     // We pass deckX, deckY as initial position to renderCardOnTable
-    const cardEl = renderCardOnTable(cardData, deckX, deckY, color, isFaceDown, isStarred, deckName);
+    const cardEl = renderCardOnTable(cardData, deckX, deckY, color, isFaceDown, isStarred, deckName, null, format);
 
     // Animate to Target
     // We need a slight delay to allow browser to render initial position
@@ -753,9 +778,13 @@ function updateDeckCount(deckEl, deck) {
     }
 }
 
-function renderCardOnTable(card, x, y, color = null, isFaceDown = false, isStarred = false, deckName = 'Card', savedVariables = null) {
+function renderCardOnTable(card, x, y, color = null, isFaceDown = false, isStarred = false, deckName = 'Card', savedVariables = null, format = 'vertical') {
     const cardEl = document.createElement('div');
     cardEl.className = `card draggable${isFaceDown ? ' face-down' : ''}${isStarred ? ' starred' : ''}`;
+    if (format && format !== 'vertical') {
+        cardEl.classList.add(format);
+    }
+    cardEl.dataset.format = format || 'vertical';
     cardEl.dataset.id = card.id;
     if (color) {
         cardEl.dataset.color = color;
@@ -800,8 +829,9 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, isStarr
     cardEl.dataset.resolvedVariables = JSON.stringify(variablesToSave);
 
     cardEl.innerHTML = `
-        <button class="star-btn ${isStarred ? 'active' : ''}" title="Toggle Star">★</button>
-        <button class="flip-btn" title="Flip Card"></button>
+        <button class="card-action-btn format-btn" title="Toggle Format">⬒</button>
+        <button class="card-action-btn star-btn ${isStarred ? 'active' : ''}" title="Toggle Star">★</button>
+        <button class="card-action-btn flip-btn" title="Flip Card"></button>
         <div class="card-header" ${headerStyle}>${card.name}</div>
         <div class="card-body">${finalMechText}</div>
         ${finalFlavorText ? `<div class="card-flavor">${finalFlavorText}</div>` : ''}
@@ -825,6 +855,13 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, isStarr
         e.stopPropagation();
         cardEl.classList.toggle('starred');
         starBtn.classList.toggle('active');
+        autoSave();
+    });
+
+    const formatBtn = cardEl.querySelector('.format-btn');
+    formatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cycleFormat(cardEl); // Logic handles persistence via dataset update, then save
         autoSave();
     });
 
@@ -1068,6 +1105,8 @@ async function handleImportTable(e) {
                 // We can use the definition from storage or the state data
                 // State data has the *current* cards, which is what we want for the table instance
                 const deck = new Deck(dState.deckId, dState.name, dState.remainingCardIds, dState.color, dState.variableName);
+                // Restore format if saved (legacy saves might not have it)
+                if (dState.format) deck.format = dState.format;
                 renderDeckOnTable(deck, dState.x, dState.y, dState.isFaceDownDefault, dState.isSideDeck);
             });
 
@@ -1076,7 +1115,7 @@ async function handleImportTable(e) {
             data.tableState.cards.forEach(cState => {
                 const card = allCards.find(c => c.id === cState.cardId);
                 if (card) {
-                    renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.isStarred, cState.deckName);
+                    renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.isStarred, cState.deckName, null, cState.format);
                     // Force zIndex
                     const cardsOnTable = document.querySelectorAll('.card.draggable');
                     const restoredCard = cardsOnTable[cardsOnTable.length - 1];
@@ -1156,6 +1195,35 @@ function flipCard(cardEl) {
         cardEl.classList.remove('is-flipping');
         autoSave();
     }, 100); // Wait half of transition
+}
+
+function cycleFormat(element, deckObj = null) {
+    // Cycles: vertical -> horizontal -> square -> vertical
+    const formats = ['vertical', 'horizontal', 'square'];
+
+    // Determine current format
+    let current = 'vertical';
+    if (element.classList.contains('horizontal')) current = 'horizontal';
+    if (element.classList.contains('square')) current = 'square';
+
+    const nextIndex = (formats.indexOf(current) + 1) % formats.length;
+    const nextFormat = formats[nextIndex];
+
+    // Remove all
+    formats.forEach(f => element.classList.remove(f));
+
+    // Add new (if not vertical default)
+    if (nextFormat !== 'vertical') {
+        element.classList.add(nextFormat);
+    }
+
+    // Update state
+    if (deckObj) {
+        deckObj.format = nextFormat;
+    } else {
+        // Card
+        element.dataset.format = nextFormat;
+    }
 }
 
 init();

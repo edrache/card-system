@@ -1,7 +1,12 @@
+TODO
+
+
+DONE
 - zaznaczanie wielu kart prostokątem
-
-
 - wylosowana karta pojawia się w trochę losowym miejscu
 - snapowanie do grida
 - kladzenie/wyciaganie zakrytych kart
-- 
+- dodatkowa warstwa z elementami do przesuwania
+- tworzenie zasobów
+- dodanie oznaczania kart
+- zmiana formatu karty między: pionowa, pozioma,kwadratowa
