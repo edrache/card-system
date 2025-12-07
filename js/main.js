@@ -31,11 +31,92 @@ function init() {
     renderDeckSelect();
     setupEventListeners();
 
+    // Try to load state or start fresh
+    if (!loadTableState()) {
+        console.log("No saved state found, starting fresh.");
+    }
+
     // Animation loop for updating lines
     requestAnimationFrame(updateConnections);
 }
 
+// --- Auto-Save Logic ---
+function autoSave() {
+    const tableState = {
+        decks: activeDecks.map(wrapper => ({
+            deckId: wrapper.deck.id,
+            name: wrapper.deck.name,
+            remainingCardIds: wrapper.deck.cardIds,
+            color: wrapper.deck.color,
+            x: parseFloat(wrapper.element ? wrapper.element.style.left : 0),
+            y: parseFloat(wrapper.element ? wrapper.element.style.top : 0),
+            variableName: wrapper.deck.variableName,
+            isFaceDownDefault: wrapper.element ? wrapper.element.dataset.isFaceDownDefault === 'true' : false,
+            isSideDeck: wrapper.element ? wrapper.element.classList.contains('side-deck') : false
+        })),
+        cards: Array.from(document.querySelectorAll('.card.draggable')).map(c => ({
+            cardId: c.dataset.id,
+            x: parseFloat(c.style.left),
+            y: parseFloat(c.style.top),
+            zIndex: c.style.zIndex,
+            color: c.style.backgroundColor, // Preserve specific color overrides if any
+            isFaceDown: c.classList.contains('face-down'),
+            deckName: c.querySelector('.card-header')?.innerText,
+            resolvedVariables: c.dataset.resolvedVariables ? JSON.parse(c.dataset.resolvedVariables) : null
+        }))
+    };
+
+    StorageManager.saveTableState({
+        timestamp: Date.now(),
+        tableState,
+        definitions: {
+            // Optional: Only save definitions if we want self-contained state, 
+            // but for auto-save, we assume library is already in storage.
+            // We'll skip definitions here to save space/perf, as they are saved separately.
+        }
+    });
+}
+
+function loadTableState() {
+    const data = StorageManager.getTableState();
+    if (!data || !data.tableState) return false;
+
+    // Restore Decks
+    activeDecks = []; // Clear current memory
+    tableContent.innerHTML = ''; // Clear DOM
+    setupConnectionLayer(); // Re-add layer
+
+    if (data.tableState.decks) {
+        data.tableState.decks.forEach(dState => {
+            const deck = new Deck(dState.deckId, dState.name, dState.remainingCardIds, dState.color, dState.variableName);
+            // Re-render
+            renderDeckOnTable(deck, dState.x, dState.y, dState.isFaceDownDefault, dState.isSideDeck);
+        });
+    }
+
+    // Restore Cards
+    if (data.tableState.cards) {
+        const allCards = StorageManager.getCards();
+        data.tableState.cards.forEach(cState => {
+            const card = allCards.find(c => c.id === cState.cardId);
+            if (card) {
+                renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.deckName, cState.resolvedVariables);
+                // Fix Z
+                const cardsOnTable = document.querySelectorAll('.card.draggable');
+                const restoredCard = cardsOnTable[cardsOnTable.length - 1];
+                if (restoredCard && cState.zIndex) {
+                    restoredCard.style.zIndex = cState.zIndex;
+                }
+            }
+        });
+    }
+
+    // Restore Zoom if we saved it? (Optional, maybe later)
+    return true;
+}
+
 function setupConnectionLayer() {
+    if (connectionLayer) connectionLayer.remove();
     connectionLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     connectionLayer.style.position = 'absolute';
     connectionLayer.style.top = '0';
@@ -72,7 +153,13 @@ function setupEventListeners() {
     });
 
     // Card Drop on Deck
-    tableContent.addEventListener('card-dropped-on-deck', handleCardDroppedOnDeck);
+    tableContent.addEventListener('card-dropped-on-deck', (e) => {
+        handleCardDroppedOnDeck(e);
+        autoSave();
+    });
+
+    // Auto-Save on Drag End
+    tableContent.addEventListener('drag-end', autoSave);
 
     // Interactive References (Text Links & Mini Cards)
     tableContent.addEventListener('click', (e) => {
@@ -157,6 +244,7 @@ function handleAddDeck() {
     const snappedY = Math.round(y / snap) * snap;
 
     renderDeckOnTable(deckInstance, snappedX, snappedY);
+    autoSave();
 }
 
 function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = false) {
@@ -184,6 +272,7 @@ function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = f
     const nameInput = deckEl.querySelector('.deck-name-input');
     nameInput.addEventListener('change', (e) => {
         deck.name = e.target.value.trim() || 'Deck';
+        autoSave();
     });
     // Prevent drag when editing
     nameInput.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -214,6 +303,7 @@ function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = f
     drawBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent drag start
         drawCard(deck, deckEl, faceDownToggle.checked);
+        autoSave();
     });
 
     shuffleBtn.addEventListener('click', (e) => {
@@ -449,7 +539,7 @@ function updateDeckCount(deckEl, deck) {
     }
 }
 
-function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckName = 'Card') {
+function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckName = 'Card', savedVariables = null) {
     const cardEl = document.createElement('div');
     cardEl.className = `card draggable${isFaceDown ? ' face-down' : ''}`;
     cardEl.dataset.id = card.id;
@@ -468,6 +558,17 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
     // Context for variable resolution (shared across mech and flavor text for consistency)
     const resolutionContext = new Map();
 
+    // Hydrate from saved state if available
+    if (savedVariables && Array.isArray(savedVariables)) {
+        const allCards = StorageManager.getCards();
+        savedVariables.forEach(([key, cardId]) => {
+            const resolvedCard = allCards.find(c => c.id === cardId);
+            if (resolvedCard) {
+                resolutionContext.set(key, { card: resolvedCard });
+            }
+        });
+    }
+
     // Process Text for Variables
     const mechResult = processVariables(card.mechanicalText, resolutionContext);
     const flavorResult = processVariables(card.flavorText || '', resolutionContext);
@@ -477,6 +578,12 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
 
     // Collect all unique attachments from context to avoid duplicates if referenced multiple times
     const attachments = Array.from(resolutionContext.values()).map(v => v.card);
+
+    // Persist resolution to DOM for auto-save
+    // We save as array of [key, cardId]
+    const variablesToSave = Array.from(resolutionContext.entries()).map(([key, val]) => [key, val.card.id]);
+
+    cardEl.dataset.resolvedVariables = JSON.stringify(variablesToSave);
 
     cardEl.innerHTML = `
         <button class="flip-btn" title="Flip Card"></button>
@@ -509,6 +616,7 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
         attachmentContainer.style.flexDirection = 'column'; // Stack vertically on the right
         attachmentContainer.style.gap = '5px';
         attachmentContainer.style.paddingLeft = '10px'; // Spacing from parent
+        attachmentContainer.style.pointerEvents = 'auto';
         attachmentContainer.style.pointerEvents = 'auto';
 
         // Connector line style (visual only)
@@ -548,6 +656,15 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
     createDeckBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent drag
         handleCreateDeck(cardEl, card);
+        autoSave();
+    });
+
+    // Context Menu Flip (Right Click)
+    cardEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        flipCard(cardEl);
+        // autoSave handled by flipCard
     });
 
     tableContent.appendChild(cardEl);
@@ -648,6 +765,7 @@ function handleCreateDeck(topCardEl, topCardData) {
     const snappedY = Math.round(y / snap) * snap;
 
     renderDeckOnTable(newDeck, snappedX, snappedY);
+    autoSave();
 }
 
 function isOverlapping(el1, el2) {
@@ -663,6 +781,8 @@ function isOverlapping(el1, el2) {
 function handleResetTable() {
     tableContent.innerHTML = '';
     activeDecks = [];
+    setupConnectionLayer(); // Re-create layer
+    autoSave();
 }
 
 function handleCardDroppedOnDeck(e) {
@@ -799,6 +919,7 @@ async function handleImportTable(e) {
         }
 
         alert('Table state imported successfully!');
+        autoSave();
 
     } catch (err) {
         console.error(err);
@@ -861,6 +982,7 @@ function flipCard(cardEl) {
     setTimeout(() => {
         cardEl.classList.toggle('face-down');
         cardEl.classList.remove('is-flipping');
+        autoSave();
     }, 100); // Wait half of transition
 }
 

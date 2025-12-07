@@ -3,6 +3,7 @@ import { Deck } from '../models/Deck.js';
 
 const CARDS_KEY = 'card_system_cards';
 const DECKS_KEY = 'card_system_decks';
+const TABLE_STATE_KEY = 'card_system_table_state';
 
 export class StorageManager {
     static getCards() {
@@ -60,6 +61,17 @@ export class StorageManager {
     static clearAll() {
         localStorage.removeItem(CARDS_KEY);
         localStorage.removeItem(DECKS_KEY);
+        localStorage.removeItem(TABLE_STATE_KEY);
+    }
+
+    static getTableState() {
+        const stateJson = localStorage.getItem(TABLE_STATE_KEY);
+        if (!stateJson) return null;
+        return JSON.parse(stateJson);
+    }
+
+    static saveTableState(state) {
+        localStorage.setItem(TABLE_STATE_KEY, JSON.stringify(state));
     }
 
     // --- Import/Export ---

@@ -213,6 +213,9 @@ export class DragManager {
 
         this.draggedElements = [];
         this.isDragging = false;
+
+        // Dispatch event for auto-save
+        this.container.dispatchEvent(new CustomEvent('drag-end'));
     }
 
     getStack(baseCard) {
