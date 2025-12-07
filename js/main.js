@@ -41,12 +41,13 @@ function init() {
 }
 
 // --- Auto-Save Logic ---
-function autoSave() {
+function captureFullState() {
+    // Capture Table State
     const tableState = {
         decks: activeDecks.map(wrapper => ({
             deckId: wrapper.deck.id,
             name: wrapper.deck.name,
-            remainingCardIds: wrapper.deck.cardIds,
+            remainingCardIds: [...wrapper.deck.cardIds],
             color: wrapper.deck.color,
             x: parseFloat(wrapper.element ? wrapper.element.style.left : 0),
             y: parseFloat(wrapper.element ? wrapper.element.style.top : 0),
@@ -59,22 +60,29 @@ function autoSave() {
             x: parseFloat(c.style.left),
             y: parseFloat(c.style.top),
             zIndex: c.style.zIndex,
-            color: c.style.backgroundColor, // Preserve specific color overrides if any
+            color: c.dataset.color || c.style.backgroundColor, // Prefer dataset if available from previous logic
             isFaceDown: c.classList.contains('face-down'),
-            deckName: c.querySelector('.card-header')?.innerText,
+            deckName: c.dataset.deckName || c.querySelector('.card-header')?.innerText,
             resolvedVariables: c.dataset.resolvedVariables ? JSON.parse(c.dataset.resolvedVariables) : null
         }))
     };
 
-    StorageManager.saveTableState({
+    // Definitions (Always include for unified format)
+    const definitions = {
+        cards: StorageManager.getCards(),
+        decks: StorageManager.getDecks()
+    };
+
+    return {
         timestamp: Date.now(),
         tableState,
-        definitions: {
-            // Optional: Only save definitions if we want self-contained state, 
-            // but for auto-save, we assume library is already in storage.
-            // We'll skip definitions here to save space/perf, as they are saved separately.
-        }
-    });
+        definitions
+    };
+}
+
+function autoSave() {
+    const fullState = captureFullState();
+    StorageManager.saveTableState(fullState);
 }
 
 function loadTableState() {
@@ -812,66 +820,7 @@ function handleCardDroppedOnDeck(e) {
 }
 
 function handleExportTable() {
-    // Capture Table State
-    const tableState = {
-        decks: [],
-        cards: []
-    };
-
-    // Decks on table
-    activeDecks.forEach(item => {
-        const rect = item.element.getBoundingClientRect();
-        const faceDownToggle = item.element.querySelector('.face-down-toggle');
-        const isFaceDownDefault = faceDownToggle ? faceDownToggle.checked : false;
-        const isSideDeck = item.element.classList.contains('side-deck');
-
-        tableState.decks.push({
-            x: parseFloat(item.element.style.left),
-            y: parseFloat(item.element.style.top),
-            deckId: item.deck.id, // Original Deck ID
-            remainingCardIds: [...item.deck.cardIds], // Current state of deck
-            color: item.deck.color,
-            name: item.deck.name,
-            variableName: item.deck.variableName, // Missing field
-            isFaceDownDefault, // Missing field
-            isSideDeck // Missing field
-        });
-    });
-
-    // Cards on table (loose cards)
-    const cards = document.querySelectorAll('.card.draggable');
-    cards.forEach(cardEl => {
-        const id = cardEl.dataset.id;
-        const color = cardEl.dataset.color;
-        const isFaceDown = cardEl.classList.contains('face-down');
-        const deckName = cardEl.dataset.deckName;
-        const zIndex = cardEl.style.zIndex;
-
-        if (id) {
-            tableState.cards.push({
-                x: parseFloat(cardEl.style.left),
-                y: parseFloat(cardEl.style.top),
-                cardId: id,
-                color: color,
-                isFaceDown, // Missing field
-                deckName, // Missing field
-                zIndex // Missing field
-            });
-        }
-    });
-
-    // Definitions
-    const definitions = {
-        cards: StorageManager.getCards(),
-        decks: StorageManager.getDecks()
-    };
-
-    const exportData = {
-        timestamp: Date.now(),
-        tableState,
-        definitions
-    };
-
+    const exportData = captureFullState();
     FileUtils.downloadJSON(exportData, `table_state_${Date.now()}.json`);
 }
 
