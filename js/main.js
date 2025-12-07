@@ -3,6 +3,7 @@ import { DragManager } from './ui/DragManager.js';
 import { Card } from './models/Card.js';
 import { Deck } from './models/Deck.js';
 import { FileUtils } from './utils/FileUtils.js';
+import { Pawn } from './models/Pawn.js';
 
 // DOM Elements
 const table = document.getElementById('table');
@@ -12,6 +13,7 @@ const addDeckBtn = document.getElementById('add-deck-btn');
 const resetTableBtn = document.getElementById('reset-table');
 const exportTableBtn = document.getElementById('export-table-btn');
 const importTableBtn = document.getElementById('import-table-btn');
+const addPawnBtn = document.getElementById('add-pawn-btn');
 const importTableFile = document.getElementById('import-table-file');
 
 const dragManager = new DragManager('table-content', 15); // 15px snap grid
@@ -19,6 +21,8 @@ let connectionLayer = null; // SVG layer for connections
 
 // State
 let activeDecks = [];
+let activePawns = [];
+let activeResources = [];
 let scale = 1;
 
 // Selection State
@@ -64,7 +68,16 @@ function captureFullState() {
             isFaceDown: c.classList.contains('face-down'),
             deckName: c.dataset.deckName || c.querySelector('.card-header')?.innerText,
             resolvedVariables: c.dataset.resolvedVariables ? JSON.parse(c.dataset.resolvedVariables) : null
-        }))
+        })),
+        pawns: activePawns.map(p => ({
+            id: p.pawn.id,
+            x: parseFloat(p.element.style.left),
+            y: parseFloat(p.element.style.top),
+            color: p.pawn.color,
+            color: p.pawn.color,
+            shape: p.pawn.shape
+        })),
+        resources: activeResources
     };
 
     // Definitions (Always include for unified format)
@@ -100,6 +113,21 @@ function loadTableState() {
             // Re-render
             renderDeckOnTable(deck, dState.x, dState.y, dState.isFaceDownDefault, dState.isSideDeck);
         });
+    }
+
+    // Restore Pawns
+    if (data.tableState.pawns) {
+        data.tableState.pawns.forEach(pState => {
+            const pawn = new Pawn(pState.id, pState.x, pState.y, pState.color, pState.shape);
+            renderPawnOnTable(pawn, pState.x, pState.y);
+        });
+    }
+
+    if (data.tableState.resources) {
+        activeResources = data.tableState.resources;
+        renderResources();
+    } else {
+        activeResources = []; // Reset if not present
     }
 
     // Restore Cards
@@ -139,6 +167,7 @@ function setupConnectionLayer() {
 function setupEventListeners() {
     addDeckBtn.addEventListener('click', handleAddDeck);
     resetTableBtn.addEventListener('click', handleResetTable);
+    addPawnBtn.addEventListener('click', handleAddPawn);
     exportTableBtn.addEventListener('click', handleExportTable);
     importTableBtn.addEventListener('click', () => importTableFile.click());
     importTableFile.addEventListener('change', handleImportTable);
@@ -253,6 +282,176 @@ function handleAddDeck() {
 
     renderDeckOnTable(deckInstance, snappedX, snappedY);
     autoSave();
+}
+
+function handleAddPawn() {
+    // Random position near center
+    const x = 300 + Math.random() * 100;
+    const y = 200 + Math.random() * 100;
+
+    // Snap
+    const snap = 15;
+    const snappedX = Math.round(x / snap) * snap;
+    const snappedY = Math.round(y / snap) * snap;
+
+    const pawn = new Pawn(null, snappedX, snappedY);
+    renderPawnOnTable(pawn, snappedX, snappedY);
+    autoSave();
+}
+
+function renderPawnOnTable(pawn, x, y) {
+    const pawnEl = document.createElement('div');
+    pawnEl.className = 'pawn draggable no-stack';
+    pawnEl.style.left = `${x}px`;
+    pawnEl.style.top = `${y}px`;
+    pawnEl.style.backgroundColor = pawn.color;
+    // Ensure pawns are always on top of everything else (decks/cards usually < 1000)
+    pawnEl.style.zIndex = (DragManager.getNextZIndex() + 5000).toString();
+
+    if (pawn.shape === 'circle') {
+        pawnEl.style.borderRadius = '50%';
+    } else {
+        pawnEl.style.borderRadius = '4px';
+    }
+
+    // Pawn Controls (Simple UI)
+    // We'll use a double-click to toggle shape and a right-click or small button for color?
+    // User Requirement: "After adding pawn can change its shape... and color"
+
+    // Let's add a small generic context menu or just click handlers.
+    // Click: Shape Toggle
+    pawnEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        pawn.shape = pawn.shape === 'square' ? 'circle' : 'square';
+        pawnEl.style.borderRadius = pawn.shape === 'circle' ? '50%' : '4px';
+        autoSave();
+    });
+
+    // Color: Use an invisible color input triggered by context menu
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = pawn.color;
+    colorInput.style.position = 'absolute';
+    colorInput.style.opacity = '0';
+    colorInput.style.pointerEvents = 'none';
+    pawnEl.appendChild(colorInput);
+
+    colorInput.addEventListener('change', (e) => {
+        pawn.color = e.target.value;
+        pawnEl.style.backgroundColor = pawn.color;
+        autoSave();
+    });
+
+    pawnEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Trigger color picker
+        colorInput.click();
+    });
+
+    // Tooltip instructions
+    pawnEl.title = "Drag to move. DblClick to change Shape. RightClick to change Color.";
+
+    tableContent.appendChild(pawnEl);
+    activePawns.push({ pawn, element: pawnEl });
+    return pawnEl;
+}
+
+// --- HUD Resources ---
+const addResourceBtn = document.getElementById('add-resource-btn');
+const hudLayer = document.getElementById('hud-layer');
+
+addResourceBtn.addEventListener('click', handleAddResource);
+
+function handleAddResource() {
+    const name = prompt('Resource Name (e.g. HP, Gold):', 'HP');
+    if (!name) return;
+
+    const initialValue = parseInt(prompt('Initial Value:', '10'), 10) || 0;
+
+    const resource = {
+        id: crypto.randomUUID(),
+        name,
+        value: initialValue
+    };
+
+    activeResources.push(resource);
+    renderResources();
+    autoSave();
+}
+
+function updateResource(id, delta) {
+    const res = activeResources.find(r => r.id === id);
+    if (res) {
+        res.value += delta;
+        renderResources();
+        autoSave();
+    }
+}
+
+function deleteResource(id) {
+    if (confirm('Delete this resource?')) {
+        activeResources = activeResources.filter(r => r.id !== id);
+        renderResources();
+        autoSave();
+    }
+}
+
+function renderResources() {
+    hudLayer.innerHTML = '';
+    activeResources.forEach(res => {
+        const widget = document.createElement('div');
+        widget.className = 'resource-widget';
+
+        const header = document.createElement('div');
+        header.className = 'resource-header';
+
+        const nameDisplay = document.createElement('span');
+        nameDisplay.className = 'resource-name';
+        nameDisplay.innerText = res.name;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'resource-remove';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = 'Remove Resource';
+        removeBtn.onclick = () => deleteResource(res.id);
+
+        header.appendChild(nameDisplay);
+        // Remove button is now appended last in the main widget container OR in header if we want it there.
+        // CSS says .resource-remove order: 10, so it can be anywhere in flex container if it's direct child?
+        // Wait, I changed CSS to make widget flex-row.
+        // So structure should be: [Header (Name)] [Controls (- Value +)] [Remove]
+
+        const controls = document.createElement('div');
+        controls.className = 'resource-controls';
+
+        const minusBtn = document.createElement('button');
+        minusBtn.className = 'resource-btn';
+        minusBtn.innerText = '-';
+        minusBtn.onclick = () => updateResource(res.id, -1);
+
+        const valueDisplay = document.createElement('div');
+        valueDisplay.className = 'resource-value';
+        valueDisplay.innerText = res.value;
+
+        const plusBtn = document.createElement('button');
+        plusBtn.className = 'resource-btn';
+        plusBtn.innerText = '+';
+        plusBtn.onclick = () => updateResource(res.id, 1);
+
+        controls.appendChild(minusBtn);
+        controls.appendChild(valueDisplay);
+        controls.appendChild(plusBtn);
+
+        widget.appendChild(header);
+        widget.appendChild(controls);
+        widget.appendChild(removeBtn); // Add remove button at the end
+
+        // Let's adjust CSS slightly for this structure if needed, but flex-row with order:10 on removeBtn works.
+        // But header is flex-row too.
+
+        hudLayer.appendChild(widget);
+    });
 }
 
 function renderDeckOnTable(deck, x, y, isFaceDownDefault = false, isSideDeck = false) {
@@ -789,6 +988,7 @@ function isOverlapping(el1, el2) {
 function handleResetTable() {
     tableContent.innerHTML = '';
     activeDecks = [];
+    activePawns = [];
     setupConnectionLayer(); // Re-create layer
     autoSave();
 }
@@ -900,6 +1100,8 @@ function setupHelp() {
                 <li><strong>Shuffle:</strong> Click "Shuffle" to randomize a deck.</li>
                 <li><strong>Random Cards:</strong> Finite/Infinite modes supported.</li>
                 <li><strong>Variables:</strong> Cards with {ITEM} placeholders draw automatically. Underlying decks must be on table.</li>
+                <li><strong>Pawns:</strong> Click "Add Pawn" to place a token. Drag to move. Double-click to toggle shape. Right-click to change color. Pawns are always on top.</li>
+                <li><strong>Resources:</strong> Click "Add Resource" to create a tracker (e.g. HP). Use +/- to change value. Trackers appear at the top of the screen.</li>
             </ul>
             <h3>Interactions</h3>
             <ul>

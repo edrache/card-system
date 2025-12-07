@@ -52,6 +52,11 @@ A web-based tabletop card system that allows you to create cards and play with t
     -   **Infinite Canvas**: A massive 3000x3000px workspace.
     -   **Zoomable Table**: Use **Mouse Wheel** to zoom from 0.2x (bird's eye view) to 3x (close up).
     -   **Import/Export**: Save/Load table state (JSON).
+    -   **Pawns**: Add generic colored tokens (Square/Circle) that sit on top of everything for tracking game state.
+    -   **HUD Resources**: Track numeric values (e.g., HP, Gold) in a fixed top-left overlay.
+-   **Additional Controls**:
+    -   **Pawns**: Click "Add Pawn" to place a token. Drag to move. Double-click to toggle shape. Right-click to change color. Pawns are always on top.
+    -   **Resources**: Click "Add Resource" to create a tracker (e.g. HP). Use +/- to enable/disable. Trackers stay at the top of the screen.
 
 ## How to Run
 

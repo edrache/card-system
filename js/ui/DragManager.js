@@ -132,6 +132,9 @@ export class DragManager {
         if (target.classList.contains('selected')) {
             // Drag ALL selected elements
             this.draggedElements = Array.from(this.container.querySelectorAll('.selected'));
+        } else if (target.classList.contains('no-stack')) {
+            // Single item drag (e.g. Pawn)
+            this.draggedElements = [target];
         } else {
             // Target is NOT selected. 
             // 1. Clear existing selection (single click behavior)
@@ -203,7 +206,10 @@ export class DragManager {
             return; // Skip snapping
         }
 
-        this.handleSnapping(bottomCard);
+        // Skip snapping/stacking logic for pawns (no-stack)
+        if (!bottomCard.classList.contains('no-stack')) {
+            this.handleSnapping(bottomCard);
+        }
 
         this.draggedElements.forEach(el => {
             el.classList.remove('dragging');

@@ -24,13 +24,16 @@
             </div>
         </div>
 
+
         <div id="controls">
             <select id="deck-select">
                 <option value="">Select a Deck to Add</option>
             </select>
             <button id="add-deck-btn">Add Deck to Table</button>
+            <button id="add-resource-btn" style="background-color: #9b59b6;">Add Resource</button>
+            <button id="add-pawn-btn" style="background-color: #e67e22;">Add Pawn</button>
             <button id="reset-table" class="danger-btn">Reset Table</button>
-            <div class="io-controls" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+            <div class="io-controls">
                 <button id="export-table-btn">Export Table</button>
                 <button id="import-table-btn">Import Table</button>
                 <input type="file" id="import-table-file" accept=".json" style="display: none;">
@@ -52,6 +55,8 @@
             </div>
         </div>
     </div>
+
+    <div id="hud-layer"></div>
 
     <script type="module" src="js/main.js"></script>
 </body>
