@@ -66,6 +66,7 @@ function captureFullState() {
             zIndex: c.style.zIndex,
             color: c.dataset.color || c.style.backgroundColor, // Prefer dataset if available from previous logic
             isFaceDown: c.classList.contains('face-down'),
+            isStarred: c.classList.contains('starred'),
             deckName: c.dataset.deckName || c.querySelector('.card-header')?.innerText,
             resolvedVariables: c.dataset.resolvedVariables ? JSON.parse(c.dataset.resolvedVariables) : null
         })),
@@ -136,7 +137,7 @@ function loadTableState() {
         data.tableState.cards.forEach(cState => {
             const card = allCards.find(c => c.id === cState.cardId);
             if (card) {
-                renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.deckName, cState.resolvedVariables);
+                renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.isStarred, cState.deckName, cState.resolvedVariables);
                 // Fix Z
                 const cardsOnTable = document.querySelectorAll('.card.draggable');
                 const restoredCard = cardsOnTable[cardsOnTable.length - 1];
@@ -639,13 +640,19 @@ function drawCard(deck, deckEl, isFaceDown = false) {
     const cardId = deck.cardIds.shift();
     updateDeckCount(deckEl, deck);
 
-    resolveCard(cardId, deckEl, deck.color, 0, isFaceDown, deck.name);
+    resolveCard(cardId, deckEl, deck.color, 0, isFaceDown, false, deck.name);
 }
 
-function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, sourceDeckName = 'Deck') {
+function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, isStarred = false, sourceDeckName = 'Deck') {
     if (depth > 10) {
         alert('Max recursion depth reached! Possible infinite loop in special cards.');
         return;
+    }
+
+    // Handle Starred Cards from Decks
+    if (typeof cardId === 'string' && cardId.endsWith(':STARRED')) {
+        isStarred = true;
+        cardId = cardId.replace(':STARRED', '');
     }
 
     // Handle Special Cards
@@ -668,7 +675,7 @@ function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, sou
                 // So let's use targetDeckInstance.deck.color
                 // If the random card is drawn, adhere to the face-down setting passed? 
                 // Yes, inherit isFaceDown
-                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1, isFaceDown, targetDeckInstance.deck.name);
+                resolveCard(drawnCardId, deckEl, targetDeckInstance.deck.color, depth + 1, isFaceDown, isStarred, targetDeckInstance.deck.name);
             } else {
                 alert('Linked side deck is empty!');
             }
@@ -683,7 +690,7 @@ function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, sou
                 const randomCardId = targetDeck.cardIds[randomIndex];
 
                 // Recursively resolve
-                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1, isFaceDown, targetDeck.name);
+                resolveCard(randomCardId, deckEl, targetDeck.color, depth + 1, isFaceDown, isStarred, targetDeck.name);
             } else {
                 alert('Target deck for random card is missing or empty!');
             }
@@ -695,11 +702,11 @@ function resolveCard(cardId, deckEl, sourceColor, depth, isFaceDown = false, sou
     const cardData = allCards.find(c => c.id === cardId);
 
     if (cardData) {
-        renderCardAtDeck(cardData, deckEl, sourceColor, isFaceDown, sourceDeckName);
+        renderCardAtDeck(cardData, deckEl, sourceColor, isFaceDown, isStarred, sourceDeckName);
     }
 }
 
-function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, deckName = 'Deck') {
+function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, isStarred = false, deckName = 'Deck') {
     const rect = deckEl.getBoundingClientRect();
     // We need to account for scale when positioning
     // The rect is screen coordinates, but we append to tableContent which is scaled.
@@ -729,7 +736,7 @@ function renderCardAtDeck(cardData, deckEl, color, isFaceDown = false, deckName 
 
     // Initial Render at DECK position (for animation start)
     // We pass deckX, deckY as initial position to renderCardOnTable
-    const cardEl = renderCardOnTable(cardData, deckX, deckY, color, isFaceDown, deckName);
+    const cardEl = renderCardOnTable(cardData, deckX, deckY, color, isFaceDown, isStarred, deckName);
 
     // Animate to Target
     // We need a slight delay to allow browser to render initial position
@@ -746,9 +753,9 @@ function updateDeckCount(deckEl, deck) {
     }
 }
 
-function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckName = 'Card', savedVariables = null) {
+function renderCardOnTable(card, x, y, color = null, isFaceDown = false, isStarred = false, deckName = 'Card', savedVariables = null) {
     const cardEl = document.createElement('div');
-    cardEl.className = `card draggable${isFaceDown ? ' face-down' : ''}`;
+    cardEl.className = `card draggable${isFaceDown ? ' face-down' : ''}${isStarred ? ' starred' : ''}`;
     cardEl.dataset.id = card.id;
     if (color) {
         cardEl.dataset.color = color;
@@ -793,6 +800,7 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
     cardEl.dataset.resolvedVariables = JSON.stringify(variablesToSave);
 
     cardEl.innerHTML = `
+        <button class="star-btn ${isStarred ? 'active' : ''}" title="Toggle Star">★</button>
         <button class="flip-btn" title="Flip Card"></button>
         <div class="card-header" ${headerStyle}>${card.name}</div>
         <div class="card-body">${finalMechText}</div>
@@ -810,6 +818,14 @@ function renderCardOnTable(card, x, y, color = null, isFaceDown = false, deckNam
     flipBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         flipCard(cardEl);
+    });
+
+    const starBtn = cardEl.querySelector('.star-btn');
+    starBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cardEl.classList.toggle('starred');
+        starBtn.classList.toggle('active');
+        autoSave();
     });
 
     // Render attachments
@@ -1010,7 +1026,11 @@ function handleCardDroppedOnDeck(e) {
     cardsToAdd.forEach(el => {
         const id = el.dataset.id;
         if (id) {
-            deck.addCard(id);
+            let finalId = id;
+            if (el.classList.contains('starred')) {
+                finalId += ':STARRED';
+            }
+            deck.addCard(finalId);
             el.remove();
         }
     });
@@ -1056,7 +1076,7 @@ async function handleImportTable(e) {
             data.tableState.cards.forEach(cState => {
                 const card = allCards.find(c => c.id === cState.cardId);
                 if (card) {
-                    renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.deckName);
+                    renderCardOnTable(card, cState.x, cState.y, cState.color, cState.isFaceDown, cState.isStarred, cState.deckName);
                     // Force zIndex
                     const cardsOnTable = document.querySelectorAll('.card.draggable');
                     const restoredCard = cardsOnTable[cardsOnTable.length - 1];
@@ -1096,6 +1116,7 @@ function setupHelp() {
                 <li><strong>Zoom:</strong> Mouse wheel to zoom (0.2x - 3x).</li>
                 <li><strong>Flip Card:</strong> Right-Click a card to flip it face-down.</li>
                 <li><strong>Draw:</strong> Click "Draw" on a deck. Cards fly out to the right.</li>
+                <li><strong>Star Card:</strong> Click the Star icon on a card to mark it (yellow border). This state is preserved even if the card is shuffled into a deck.</li>
                 <li><strong>Rename Deck:</strong> Click the deck name on the table to edit.</li>
                 <li><strong>Shuffle:</strong> Click "Shuffle" to randomize a deck.</li>
                 <li><strong>Random Cards:</strong> Finite/Infinite modes supported.</li>
